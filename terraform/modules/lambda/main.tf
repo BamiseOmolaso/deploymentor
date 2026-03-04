@@ -9,13 +9,13 @@ locals {
 resource "aws_lambda_function" "this" {
   filename         = local.lambda_zip_path
   function_name    = var.function_name
-  role            = aws_iam_role.lambda.arn
-  handler         = "src.${var.handler}"
-  runtime         = var.runtime
-  timeout         = var.timeout
-  memory_size     = var.memory_size
+  role             = aws_iam_role.lambda.arn
+  handler          = "src.${var.handler}"
+  runtime          = var.runtime
+  timeout          = var.timeout
+  memory_size      = var.memory_size
   source_code_hash = filebase64sha256(local.lambda_zip_path)
-  layers          = var.layers  # Lambda Layers for dependencies
+  layers           = var.layers # Lambda Layers for dependencies
 
   environment {
     variables = var.environment_variables

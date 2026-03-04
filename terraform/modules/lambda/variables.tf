@@ -36,7 +36,7 @@ variable "environment_variables" {
 variable "log_retention_days" {
   description = "CloudWatch log retention in days"
   type        = number
-  default     = 7  # Keep logs for 7 days to control costs
+  default     = 7 # Keep logs for 7 days to control costs
 }
 
 variable "tags" {

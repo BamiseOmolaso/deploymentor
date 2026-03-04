@@ -44,12 +44,12 @@ module "lambda" {
   handler       = "lambda_handler.handler"
   runtime       = "python3.12"
   timeout       = 30
-  layers        = ["arn:aws:lambda:us-east-1:827327671360:layer:deploymentor-dependencies:2"]  # Lambda Layer for requests
+  layers        = ["arn:aws:lambda:us-east-1:827327671360:layer:deploymentor-dependencies:2"] # Lambda Layer for requests
 
   environment_variables = {
-    ENVIRONMENT     = var.environment
+    ENVIRONMENT            = var.environment
     GITHUB_TOKEN_SSM_PARAM = var.github_token_ssm_param
-    LOG_LEVEL       = var.log_level
+    LOG_LEVEL              = var.log_level
   }
 
   tags = {
@@ -61,9 +61,9 @@ module "lambda" {
 module "api_gateway" {
   source = "./modules/api_gateway"
 
-  name                      = "${var.project_name}-${var.environment}"
-  lambda_function_arn       = module.lambda.function_arn
-  lambda_function_name      = module.lambda.function_name
+  name                       = "${var.project_name}-${var.environment}"
+  lambda_function_arn        = module.lambda.function_arn
+  lambda_function_name       = module.lambda.function_name
   lambda_function_invoke_arn = module.lambda.function_invoke_arn
 
   tags = {
@@ -75,9 +75,9 @@ module "api_gateway" {
 module "github_oidc" {
   source = "./modules/github_oidc"
 
-  project_name        = var.project_name
-  environment         = var.environment
-  github_repo         = var.github_repo != "" ? var.github_repo : "BamiseOmolaso/deploymentor"
+  project_name         = var.project_name
+  environment          = var.environment
+  github_repo          = var.github_repo != "" ? var.github_repo : "BamiseOmolaso/deploymentor"
   create_oidc_provider = var.create_oidc_provider
 
   tags = {

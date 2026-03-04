@@ -29,11 +29,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     logger.info(f"Received event: {json.dumps(event)}")
 
     # Extract HTTP method and path
-    # API Gateway HTTP API v2 format - path and httpMethod are at top level
-    http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get(
-        "method", "GET"
+    # API Gateway HTTP API v2 format
+    request_context = event.get("requestContext", {})
+    http_context = request_context.get("http", {})
+
+    http_method = (
+        event.get("httpMethod")
+        or http_context.get("method")
+        or request_context.get("httpMethod")
+        or "GET"
     )
-    path = event.get("path") or event.get("requestContext", {}).get("http", {}).get("path", "/")
+
+    # Path can be in multiple places for HTTP API v2
+    path = (
+        event.get("path")
+        or http_context.get("path")
+        or request_context.get("path")
+        or event.get("rawPath")
+        or "/"
+    )
+
+    logger.info(f"Extracted method: {http_method}, path: {path}")
 
     # Route handling
     if path == "/health" and http_method == "GET":

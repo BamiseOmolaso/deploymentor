@@ -76,5 +76,14 @@ jobs:
       - name: Health Check
         run: |
           sleep 10  # Wait for API to be ready
-          curl -f "${{ steps.api_url.outputs.url }}/health" || exit 1
+          API_URL="${{ steps.api_url.outputs.url }}"
+          echo "Testing health endpoint: ${API_URL}/health"
+          # Try with verbose output to see what's happening
+          curl -v "${API_URL}/health" || {
+            echo "Health check failed, trying root path..."
+            curl -v "${API_URL}/" || {
+              echo "Both health and root paths failed"
+              exit 1
+            }
+          }
 

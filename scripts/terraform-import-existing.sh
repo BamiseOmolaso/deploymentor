@@ -68,30 +68,45 @@ fi
 
 # Check if API_ID is valid (not empty and not "None")
 if [ -n "${API_ID}" ] && [ "${API_ID}" != "None" ] && [ "${API_ID}" != "null" ]; then
-    echo "Found API ID: ${API_ID}, attempting to import dependent resources..."
+    echo "Found API ID: ${API_ID}, checking for dependent resources..."
     
-    # Import API Gateway Integration
-    # Integration ID format: {api_id}/{integration_id}
-    # We need to find the integration ID first
     if command -v aws >/dev/null 2>&1; then
-        INTEGRATION_ID=$(aws apigatewayv2 get-integrations --api-id "${API_ID}" --query "Items[0].IntegrationId" --output text 2>/dev/null || echo "")
-        if [ -n "${INTEGRATION_ID}" ] && [ "${INTEGRATION_ID}" != "None" ]; then
-            import_if_exists "module.api_gateway.aws_apigatewayv2_integration.lambda" "${API_ID}/${INTEGRATION_ID}" "API Gateway Integration" || true
+        # Import API Gateway Integration
+        # Integration ID format: {api_id}/{integration_id}
+        # Check if integration exists before importing
+        INTEGRATION_EXISTS=$(aws apigatewayv2 get-integrations --api-id "${API_ID}" --query "Items[0].IntegrationId" --output text 2>/dev/null || echo "")
+        if [ -n "${INTEGRATION_EXISTS}" ] && [ "${INTEGRATION_EXISTS}" != "None" ] && [ "${INTEGRATION_EXISTS}" != "null" ]; then
+            import_if_exists "module.api_gateway.aws_apigatewayv2_integration.lambda" "${API_ID}/${INTEGRATION_EXISTS}" "API Gateway Integration" || true
+        else
+            echo "⏭️  Skipping: Integration does not exist yet for API ${API_ID}"
         fi
-    fi
-    
-    # Import API Gateway Route
-    # Route ID format: {api_id}/{route_id}
-    if command -v aws >/dev/null 2>&1; then
-        ROUTE_ID=$(aws apigatewayv2 get-routes --api-id "${API_ID}" --query "Items[?RouteKey=='\\$default'].RouteId" --output text 2>/dev/null | head -1 || echo "")
-        if [ -n "${ROUTE_ID}" ] && [ "${ROUTE_ID}" != "None" ]; then
-            import_if_exists "module.api_gateway.aws_apigatewayv2_route.default" "${API_ID}/${ROUTE_ID}" "API Gateway Route" || true
+        
+        # Import API Gateway Route
+        # Route ID format: {api_id}/{route_id}
+        # Check if route exists before importing
+        ROUTE_EXISTS=$(aws apigatewayv2 get-routes --api-id "${API_ID}" --query "Items[?RouteKey=='\\$default'].RouteId | [0]" --output text 2>/dev/null || echo "")
+        if [ -n "${ROUTE_EXISTS}" ] && [ "${ROUTE_EXISTS}" != "None" ] && [ "${ROUTE_EXISTS}" != "null" ]; then
+            import_if_exists "module.api_gateway.aws_apigatewayv2_route.default" "${API_ID}/${ROUTE_EXISTS}" "API Gateway Route" || true
+        else
+            echo "⏭️  Skipping: \$default route does not exist yet for API ${API_ID}"
         fi
+        
+        # Import API Gateway Stage
+        # Stage format: {api_id}/{stage_name}
+        # Check if stage exists before importing
+        STAGE_EXISTS=$(aws apigatewayv2 get-stage \
+            --api-id "${API_ID}" \
+            --stage-name '$default' \
+            --query "StageName" \
+            --output text 2>/dev/null || echo "")
+        if [ -n "${STAGE_EXISTS}" ] && [ "${STAGE_EXISTS}" != "None" ] && [ "${STAGE_EXISTS}" != "null" ]; then
+            import_if_exists "module.api_gateway.aws_apigatewayv2_stage.default" "${API_ID}/\$default" "API Gateway Stage" || true
+        else
+            echo "⏭️  Skipping: \$default stage does not exist yet for API ${API_ID}"
+        fi
+    else
+        echo "⚠️  AWS CLI not available, skipping API Gateway dependent resource imports"
     fi
-    
-    # Import API Gateway Stage
-    # Stage format: {api_id}/{stage_name}
-    import_if_exists "module.api_gateway.aws_apigatewayv2_stage.default" "${API_ID}/\$default" "API Gateway Stage" || true
 else
     echo "⚠️  API Gateway API '${API_NAME}' not found in state or AWS, skipping dependent resource imports"
 fi

@@ -4,7 +4,9 @@
 
 set -e
 
+# Set ENVIRONMENT from first argument, default to prod
 ENVIRONMENT="${1:-prod}"
+
 FUNCTION_NAME="deploymentor-${ENVIRONMENT}"
 LOG_GROUP_LAMBDA="/aws/lambda/${FUNCTION_NAME}"
 LOG_GROUP_API="/aws/apigateway/deploymentor-${ENVIRONMENT}"
@@ -26,7 +28,7 @@ import_if_exists() {
     fi
     
     echo "  Attempting to import: ${resource_address}..."
-    if terraform import "${resource_address}" "${resource_id}" 2>/dev/null; then
+    if terraform import -var="environment=${ENVIRONMENT}" "${resource_address}" "${resource_id}" 2>/dev/null; then
         echo "  ✅ Imported: ${resource_address}"
         return 0
     else

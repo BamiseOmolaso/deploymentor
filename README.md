@@ -1,2 +1,112 @@
-# deploymentor
-AI agent that explains failed CI/CD runs
+# DeployMentor
+
+> A serverless AI agent that analyzes failed GitHub Actions workflow runs and explains root cause and possible fixes.
+
+## 🎯 Project Overview
+
+DeployMentor is a serverless application built on AWS Lambda that:
+- Analyzes failed GitHub Actions workflow runs
+- Identifies root causes of failures
+- Suggests actionable fixes
+- Provides insights through a REST API
+
+## 🏗️ Architecture
+
+```
+GitHub Actions → API Gateway HTTP API → AWS Lambda → AI Analysis → Response
+```
+
+**Infrastructure:**
+- **Compute**: AWS Lambda (Python 3.12)
+- **API**: API Gateway HTTP API
+- **Secrets**: AWS Systems Manager Parameter Store
+- **Monitoring**: CloudWatch Logs & Metrics
+- **IaC**: Terraform
+- **CI/CD**: GitHub Actions with OIDC
+
+## 📁 Project Structure
+
+```
+deploymentor/
+├── src/                    # Python application code
+│   ├── lambda_handler.py   # Main Lambda entry point
+│   ├── analyzers/          # Workflow analysis logic
+│   ├── github/             # GitHub API client
+│   └── utils/              # Utility functions
+├── terraform/              # Infrastructure as Code
+│   ├── main.tf            # Main configuration
+│   ├── variables.tf       # Variable definitions
+│   ├── outputs.tf         # Output values
+│   └── modules/           # Reusable modules
+│       ├── lambda/        # Lambda function module
+│       ├── api_gateway/   # API Gateway module
+│       └── iam/           # IAM roles & policies
+├── docker/                 # Docker configuration
+│   └── Dockerfile         # Local development container
+├── .github/                # GitHub configuration
+│   └── workflows/         # CI/CD workflows
+│       ├── ci.yml        # Continuous Integration
+│       └── deploy.yml    # Deployment workflow
+├── tests/                  # Test files
+├── scripts/                # Utility scripts
+├── .gitignore            # Git ignore rules
+├── requirements.txt       # Python dependencies
+├── docker-compose.yml     # Local development
+└── README.md             # This file
+```
+
+## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.12+
+- Terraform >= 1.5
+- Docker & Docker Compose
+- AWS CLI configured
+- GitHub repository with Actions enabled
+
+### Local Development
+
+```bash
+# Start local development environment
+docker-compose up
+
+# Run tests
+pytest tests/
+
+# Format code
+black src/
+```
+
+### Deployment
+
+See [DEPLOYMENT.md](./docs/DEPLOYMENT.md) for detailed deployment instructions.
+
+## 🔒 Security
+
+- **No hardcoded secrets** - All secrets in SSM Parameter Store
+- **Least privilege IAM** - Minimal required permissions
+- **OIDC authentication** - No AWS access keys in GitHub
+- **Security scanning** - Automated checks in CI
+
+See [SECURITY.md](./docs/SECURITY.md) for security practices.
+
+## 💰 Cost Estimate
+
+Target: **$5-10/month**
+- Lambda: ~$0.20 (1M requests)
+- API Gateway: ~$1.00 (1M requests)
+- CloudWatch: ~$0.50 (logs)
+- SSM Parameter Store: Free tier
+- **Total**: ~$1.70/month (well under budget)
+
+## 📚 Documentation
+
+- [Architecture](./docs/ARCHITECTURE.md)
+- [Deployment Guide](./docs/DEPLOYMENT.md)
+- [Security Practices](./docs/SECURITY.md)
+- [Development Guide](./docs/DEVELOPMENT.md)
+
+## 📝 License
+
+MIT License - See [LICENSE](./LICENSE) file

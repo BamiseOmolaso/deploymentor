@@ -1,0 +1,125 @@
+name: CI
+
+on:
+  push:
+    branches: [main, develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+  pull-requests: read
+
+jobs:
+  lint:
+    name: Lint & Format Check
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-dev.txt
+
+      - name: Run Black (format check)
+        run: black --check src/ tests/
+
+      - name: Run isort (import sorting)
+        run: isort --check-only src/ tests/
+
+      - name: Run Flake8
+        run: flake8 src/ tests/ --max-line-length=100 --extend-ignore=E203,W503
+
+      - name: Run MyPy (type checking)
+        run: mypy src/ --ignore-missing-imports || true  # Non-blocking for now
+
+  test:
+    name: Run Tests
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install -r requirements-dev.txt
+
+      - name: Run tests
+        run: pytest tests/ -v --cov=src --cov-report=xml
+
+      - name: Upload coverage
+        uses: codecov/codecov-action@v3
+        with:
+          file: ./coverage.xml
+          fail_ci_if_error: false
+
+  security:
+    name: Security Scan
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install safety
+
+      - name: Run Safety check
+        run: safety check --json || true  # Non-blocking, but logs issues
+
+      - name: Check for hardcoded secrets
+        run: |
+          # Basic check for common secret patterns
+          if grep -r "password\s*=\s*['\"].*['\"]" src/ terraform/; then
+            echo "⚠️  Potential hardcoded password found!"
+            exit 1
+          fi
+          if grep -r "api_key\s*=\s*['\"].*['\"]" src/ terraform/; then
+            echo "⚠️  Potential hardcoded API key found!"
+            exit 1
+          fi
+          if grep -r "token\s*=\s*['\"].*['\"]" src/ terraform/; then
+            echo "⚠️  Potential hardcoded token found!"
+            exit 1
+          fi
+
+  terraform-validate:
+    name: Terraform Validate
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Terraform
+        uses: hashicorp/setup-terraform@v3
+        with:
+          terraform_version: '1.5.0'
+
+      - name: Terraform Format Check
+        run: terraform fmt -check -recursive terraform/
+
+      - name: Terraform Init
+        working-directory: terraform
+        run: terraform init -backend=false
+
+      - name: Terraform Validate
+        working-directory: terraform
+        run: terraform validate
+

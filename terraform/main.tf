@@ -1,0 +1,72 @@
+terraform {
+  required_version = ">= 1.5"
+
+  required_providers {
+    aws = {
+      source  = "hashicorp/aws"
+      version = "~> 5.0"
+    }
+  }
+
+  # Backend configuration (to be configured per environment)
+  # Uncomment and configure for remote state:
+  # backend "s3" {
+  #   bucket = "deploymentor-terraform-state"
+  #   key    = "deploymentor/terraform.tfstate"
+  #   region = "us-east-1"
+  # }
+}
+
+provider "aws" {
+  region = var.aws_region
+
+  default_tags {
+    tags = {
+      Project     = "DeployMentor"
+      ManagedBy   = "Terraform"
+      Environment = var.environment
+    }
+  }
+}
+
+# Data sources
+data "aws_caller_identity" "current" {}
+data "aws_region" "current" {}
+
+# SSM Parameter for GitHub token (create manually or via separate script)
+# This ensures we never hardcode secrets in Terraform
+
+# Lambda function
+module "lambda" {
+  source = "./modules/lambda"
+
+  function_name = "${var.project_name}-${var.environment}"
+  handler       = "lambda_handler.handler"
+  runtime       = "python3.12"
+  timeout       = 30
+
+  environment_variables = {
+    ENVIRONMENT     = var.environment
+    GITHUB_TOKEN_SSM_PARAM = var.github_token_ssm_param
+    LOG_LEVEL       = var.log_level
+  }
+
+  tags = {
+    Name = "${var.project_name}-lambda-${var.environment}"
+  }
+}
+
+# API Gateway HTTP API
+module "api_gateway" {
+  source = "./modules/api_gateway"
+
+  name                      = "${var.project_name}-${var.environment}"
+  lambda_function_arn       = module.lambda.function_arn
+  lambda_function_name      = module.lambda.function_name
+  lambda_function_invoke_arn = module.lambda.function_invoke_arn
+
+  tags = {
+    Name = "${var.project_name}-api-${var.environment}"
+  }
+}
+

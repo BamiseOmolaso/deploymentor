@@ -1,0 +1,21 @@
+version: '3.8'
+
+services:
+  deploymentor:
+    build:
+      context: .
+      dockerfile: docker/Dockerfile
+    container_name: deploymentor-dev
+    volumes:
+      - ./src:/app/src
+      - ./tests:/app/tests
+    environment:
+      - ENVIRONMENT=dev
+      - LOG_LEVEL=DEBUG
+      - AWS_REGION=us-east-1
+      # For local dev, you can set GITHUB_TOKEN via .env file
+      # Never commit .env files!
+    env_file:
+      - .env.local  # Create this file locally (gitignored)
+    command: tail -f /dev/null  # Keep container running for development
+

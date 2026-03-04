@@ -64,6 +64,10 @@ resource "aws_iam_role" "github_actions" {
       ManagedBy   = "Terraform"
     }
   )
+
+  lifecycle {
+    ignore_changes = [name]
+  }
 }
 
 # Policy for GitHub Actions - Terraform and Lambda deployment permissions

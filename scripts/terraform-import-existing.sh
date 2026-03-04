@@ -1,8 +1,7 @@
 #!/bin/bash
 # Import existing Terraform resources if they exist
 # This script checks if resources exist and imports them into Terraform state
-
-set -e
+# Must be run from the terraform directory
 
 # Set ENVIRONMENT from first argument, default to prod
 ENVIRONMENT="${1:-prod}"
@@ -28,7 +27,8 @@ import_if_exists() {
     fi
     
     echo "  Attempting to import: ${resource_address}..."
-    if terraform import -var="environment=${ENVIRONMENT}" "${resource_address}" "${resource_id}" 2>/dev/null; then
+    # Use -var flag to prevent interactive prompts
+    if terraform import -var="environment=${ENVIRONMENT}" "${resource_address}" "${resource_id}" 2>&1; then
         echo "  ✅ Imported: ${resource_address}"
         return 0
     else

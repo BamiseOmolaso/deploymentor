@@ -209,7 +209,6 @@ class WorkflowAnalyzer:
         error_types = set()
 
         for step in failed_steps:
-            step_name = step.get("name", "Unknown")
             step_analysis = self._analyze_step(step)
             step_analyses.append(step_analysis)
             if step_analysis.get("error_type"):
@@ -225,7 +224,8 @@ class WorkflowAnalyzer:
             # Check if job has no steps (might indicate early failure)
             if not steps:
                 logger.warning(
-                    f"Job '{job_name}' failed with no steps - may indicate early failure or API limitation"
+                    f"Job '{job_name}' failed with no steps - "
+                    f"may indicate early failure or API limitation"
                 )
                 # Add a placeholder step analysis to indicate the issue
                 step_analyses.append(
@@ -233,7 +233,10 @@ class WorkflowAnalyzer:
                         "step_name": "Job failed before steps executed",
                         "conclusion": "failure",
                         "error_type": job_error_type or "unknown",
-                        "error_message": "No step details available. Check workflow logs or job status.",
+                        "error_message": (
+                            "No step details available. "
+                            "Check workflow logs or job status."
+                        ),
                     }
                 )
 
@@ -414,9 +417,12 @@ class WorkflowAnalyzer:
 
         if "dependency" in error_types:
             suggestions.append(
-                "Dependency installation failed. Check package.json, requirements.txt, or other dependency files."
+                "Dependency installation failed. "
+                "Check package.json, requirements.txt, or other dependency files."
             )
-            suggestions.append("Verify all dependencies are available and versions are correct.")
+            suggestions.append(
+                "Verify all dependencies are available and versions are correct."
+            )
 
         if "syntax" in error_types:
             suggestions.append("Syntax error detected. Review the code in the failing step.")
@@ -430,7 +436,8 @@ class WorkflowAnalyzer:
 
         if "network" in error_types:
             suggestions.append(
-                "Network error detected. Check internet connectivity and external service availability."
+                "Network error detected. "
+                "Check internet connectivity and external service availability."
             )
 
         if "resource" in error_types:
@@ -440,15 +447,19 @@ class WorkflowAnalyzer:
 
         if "configuration" in error_types:
             suggestions.append(
-                "Configuration error detected. Check workflow YAML syntax and required environment variables."
+                "Configuration error detected. "
+                "Check workflow YAML syntax and required environment variables."
             )
 
         if "terraform" in error_types:
             suggestions.append(
-                "Terraform validation or execution failed. Check Terraform configuration files for syntax errors or missing resources."
+                "Terraform validation or execution failed. "
+                "Check Terraform configuration files for syntax errors or missing resources."
             )
             suggestions.append(
-                "Review Terraform plan output for detailed error messages. Common issues include: invalid resource configurations, missing variables, or state conflicts."
+                "Review Terraform plan output for detailed error messages. "
+                "Common issues include: invalid resource configurations, "
+                "missing variables, or state conflicts."
             )
 
         if not suggestions:

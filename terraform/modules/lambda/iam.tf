@@ -16,6 +16,10 @@ resource "aws_iam_role" "lambda" {
   })
 
   tags = var.tags
+
+  lifecycle {
+    ignore_changes = [name]
+  }
 }
 
 # Basic Lambda execution policy (CloudWatch Logs)

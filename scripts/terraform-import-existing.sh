@@ -37,6 +37,9 @@ import_if_exists() {
     fi
 }
 
+# Import Lambda Function
+import_if_exists "module.lambda.aws_lambda_function.this" "${FUNCTION_NAME}" "Lambda Function" || true
+
 # Import CloudWatch Log Groups
 import_if_exists "module.lambda.aws_cloudwatch_log_group.lambda" "${LOG_GROUP_LAMBDA}" "Lambda Log Group" || true
 import_if_exists "module.api_gateway.aws_cloudwatch_log_group.api" "${LOG_GROUP_API}" "API Gateway Log Group" || true

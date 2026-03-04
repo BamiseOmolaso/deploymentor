@@ -30,7 +30,9 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     # Extract HTTP method and path
     # API Gateway HTTP API v2 format - path and httpMethod are at top level
-    http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get("method", "GET")
+    http_method = event.get("httpMethod") or event.get("requestContext", {}).get("http", {}).get(
+        "method", "GET"
+    )
     path = event.get("path") or event.get("requestContext", {}).get("http", {}).get("path", "/")
 
     # Route handling

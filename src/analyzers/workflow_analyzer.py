@@ -221,21 +221,25 @@ class WorkflowAnalyzer:
             job_error_type = self._identify_error_type(job_name)
             if job_error_type:
                 error_types.add(job_error_type)
-            
+
             # Check if job has no steps (might indicate early failure)
             if not steps:
-                logger.warning(f"Job '{job_name}' failed with no steps - may indicate early failure or API limitation")
+                logger.warning(
+                    f"Job '{job_name}' failed with no steps - may indicate early failure or API limitation"
+                )
                 # Add a placeholder step analysis to indicate the issue
-                step_analyses.append({
-                    "step_name": "Job failed before steps executed",
-                    "conclusion": "failure",
-                    "error_type": job_error_type or "unknown",
-                    "error_message": "No step details available. Check workflow logs or job status.",
-                })
+                step_analyses.append(
+                    {
+                        "step_name": "Job failed before steps executed",
+                        "conclusion": "failure",
+                        "error_type": job_error_type or "unknown",
+                        "error_message": "No step details available. Check workflow logs or job status.",
+                    }
+                )
 
         # Determine primary error type
         primary_error_type = self._determine_primary_error_type(error_types, step_analyses)
-        
+
         # If still no error type, try to infer from job name
         if not primary_error_type and conclusion == "failure":
             primary_error_type = self._identify_error_type(job_name)
@@ -277,10 +281,10 @@ class WorkflowAnalyzer:
         # Check for common error patterns in step name
         # Also check status field as it might indicate failure
         is_failed = (
-            conclusion == "failure" or
-            status == "failure" or
-            "error" in step_name.lower() or
-            "failed" in step_name.lower()
+            conclusion == "failure"
+            or status == "failure"
+            or "error" in step_name.lower()
+            or "failed" in step_name.lower()
         )
 
         # Check for common error patterns in step name or logs
@@ -349,7 +353,14 @@ class WorkflowAnalyzer:
             return None
 
         # Priority order: terraform > configuration > dependency > syntax > others
-        priority_order = ["terraform", "configuration", "dependency", "syntax", "permission", "timeout"]
+        priority_order = [
+            "terraform",
+            "configuration",
+            "dependency",
+            "syntax",
+            "permission",
+            "timeout",
+        ]
 
         for error_type in priority_order:
             if error_type in error_types:

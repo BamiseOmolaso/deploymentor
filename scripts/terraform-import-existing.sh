@@ -60,11 +60,14 @@ if terraform state show "module.api_gateway.aws_apigatewayv2_api.this" >/dev/nul
     # API is in state, get its ID
     API_ID=$(terraform state show "module.api_gateway.aws_apigatewayv2_api.this" | grep -E "^id\s+=" | awk '{print $3}' | tr -d '"' || echo "")
 elif command -v aws >/dev/null 2>&1; then
-    # Try to get API ID from AWS
-    API_ID=$(aws apigatewayv2 get-apis --query "Items[?Name=='${API_NAME}'].ApiId" --output text 2>/dev/null | head -1 || echo "")
+    # Try to get API ID from AWS, filtering by name to match only this environment's API
+    API_ID=$(aws apigatewayv2 get-apis \
+        --query "Items[?Name=='${API_NAME}'].ApiId | [0]" \
+        --output text 2>/dev/null || echo "")
 fi
 
-if [ -n "${API_ID}" ]; then
+# Check if API_ID is valid (not empty and not "None")
+if [ -n "${API_ID}" ] && [ "${API_ID}" != "None" ] && [ "${API_ID}" != "null" ]; then
     echo "Found API ID: ${API_ID}, attempting to import dependent resources..."
     
     # Import API Gateway Integration
@@ -90,7 +93,7 @@ if [ -n "${API_ID}" ]; then
     # Stage format: {api_id}/{stage_name}
     import_if_exists "module.api_gateway.aws_apigatewayv2_stage.default" "${API_ID}/\$default" "API Gateway Stage" || true
 else
-    echo "⚠️  API Gateway API not found in state or AWS, skipping dependent resource imports"
+    echo "⚠️  API Gateway API '${API_NAME}' not found in state or AWS, skipping dependent resource imports"
 fi
 
 echo ""

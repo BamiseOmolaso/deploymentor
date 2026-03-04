@@ -234,8 +234,7 @@ class WorkflowAnalyzer:
                         "conclusion": "failure",
                         "error_type": job_error_type or "unknown",
                         "error_message": (
-                            "No step details available. "
-                            "Check workflow logs or job status."
+                            "No step details available. " "Check workflow logs or job status."
                         ),
                     }
                 )
@@ -420,9 +419,7 @@ class WorkflowAnalyzer:
                 "Dependency installation failed. "
                 "Check package.json, requirements.txt, or other dependency files."
             )
-            suggestions.append(
-                "Verify all dependencies are available and versions are correct."
-            )
+            suggestions.append("Verify all dependencies are available and versions are correct.")
 
         if "syntax" in error_types:
             suggestions.append("Syntax error detected. Review the code in the failing step.")

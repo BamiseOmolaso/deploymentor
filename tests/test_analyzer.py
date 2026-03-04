@@ -205,7 +205,10 @@ class TestWorkflowAnalyzer:
         result = analyzer._analyze_job(job)
 
         assert result["failed_steps_count"] == 0
-        assert len(result["step_analyses"]) == 0
+        # When job fails with no steps, we add a placeholder step analysis
+        # So expect 1 step analysis instead of 0
+        assert len(result["step_analyses"]) == 1
+        assert result["step_analyses"][0]["step_name"] == "Job failed before steps executed"
 
     def test_determine_primary_error_type_priority(self, analyzer):
         """Test error type priority ordering."""

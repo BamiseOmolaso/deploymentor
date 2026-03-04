@@ -45,3 +45,9 @@ variable "tags" {
   default     = {}
 }
 
+variable "layers" {
+  description = "List of Lambda Layer ARNs to attach to the function"
+  type        = list(string)
+  default     = []
+}
+

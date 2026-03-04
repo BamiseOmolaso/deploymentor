@@ -1,21 +1,21 @@
 # Lambda function deployment package
-data "archive_file" "lambda_zip" {
-  type        = "zip"
-  source_dir  = "${path.module}/../../src"
-  output_path = "${path.module}/lambda_function.zip"
-  excludes    = ["__pycache__", "*.pyc", "*.pyo"]
+# Use pre-built zip file with dependencies
+# The zip file should be created using scripts/package-lambda-with-deps.sh
+locals {
+  lambda_zip_path = "${path.root}/../lambda_function.zip"
 }
 
 # Lambda function
 resource "aws_lambda_function" "this" {
-  filename         = data.archive_file.lambda_zip.output_path
+  filename         = local.lambda_zip_path
   function_name    = var.function_name
   role            = aws_iam_role.lambda.arn
-  handler         = var.handler
+  handler         = "src.${var.handler}"
   runtime         = var.runtime
   timeout         = var.timeout
   memory_size     = var.memory_size
-  source_code_hash = data.archive_file.lambda_zip.output_base64sha256
+  source_code_hash = filebase64sha256(local.lambda_zip_path)
+  layers          = var.layers  # Lambda Layers for dependencies
 
   environment {
     variables = var.environment_variables
@@ -31,4 +31,3 @@ resource "aws_cloudwatch_log_group" "lambda" {
 
   tags = var.tags
 }
-

@@ -18,3 +18,8 @@ output "lambda_role_arn" {
   value       = module.lambda.role_arn
 }
 
+output "github_actions_role_arn" {
+  description = "ARN of the IAM role for GitHub Actions (OIDC)"
+  value       = module.github_oidc.role_arn
+}
+

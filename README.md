@@ -24,6 +24,16 @@ GitHub Actions → API Gateway HTTP API → AWS Lambda → AI Analysis → Respo
 - **IaC**: Terraform
 - **CI/CD**: GitHub Actions with OIDC
 
+## 📚 Documentation
+
+- **[API Usage Guide](docs/API_USAGE.md)** - How to use the DeployMentor API
+- **[Deployment Guide](docs/DEPLOYMENT.md)** - Deploy infrastructure to AWS
+- **[GitHub OIDC Setup](docs/GITHUB_OIDC_SETUP.md)** - Configure secure CI/CD with OIDC
+- **[Security Practices](docs/SECURITY.md)** - Security best practices
+- **[Local Development](docs/LOCAL_DEVELOPMENT.md)** - Set up local development environment
+- **[Testing Guide](docs/TESTING.md)** - How to test the API
+- **[SSM Setup](docs/SSM_SETUP.md)** - Configure AWS SSM Parameter Store
+
 ## 📁 Project Structure
 
 ```
@@ -56,6 +66,66 @@ deploymentor/
 ```
 
 ## 🚀 Quick Start
+
+### Prerequisites
+
+- Python 3.12+
+- Terraform >= 1.5.0
+- AWS CLI configured
+- GitHub Personal Access Token
+
+### 1. Clone and Setup
+
+```bash
+git clone https://github.com/BamiseOmolaso/deploymentor.git
+cd deploymentor
+python3 -m venv venv
+source venv/bin/activate
+pip install -r requirements-dev.txt
+```
+
+### 2. Configure GitHub Token
+
+Store your GitHub token in AWS SSM:
+
+```bash
+aws ssm put-parameter \
+  --name "/deploymentor/github/token" \
+  --value "your-token-here" \
+  --type "SecureString" \
+  --region us-east-1
+```
+
+See [SSM Setup Guide](docs/SSM_SETUP.md) for details.
+
+### 3. Deploy Infrastructure
+
+```bash
+cd terraform
+terraform init
+terraform plan -var="environment=dev"
+terraform apply -var="environment=dev"
+```
+
+### 4. Test the API
+
+```bash
+# Health check
+curl https://YOUR_API_URL/health
+
+# Analyze a workflow
+curl -X POST https://YOUR_API_URL/analyze \
+  -H "Content-Type: application/json" \
+  -d '{
+    "owner": "your-username",
+    "repo": "your-repo",
+    "run_id": 123456789
+  }'
+```
+
+See [API Usage Guide](docs/API_USAGE.md) for more examples.
+
+## 🚀 Quick Start (Old)
 
 ### Prerequisites
 

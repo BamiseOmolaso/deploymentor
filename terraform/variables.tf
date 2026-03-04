@@ -48,3 +48,15 @@ variable "lambda_memory_size" {
   default     = 256
 }
 
+variable "github_repo" {
+  description = "GitHub repository in format 'owner/repo' (e.g., 'BamiseOmolaso/deploymentor')"
+  type        = string
+  default     = ""
+}
+
+variable "create_oidc_provider" {
+  description = "Whether to create the OIDC provider (set to false if it already exists in your AWS account)"
+  type        = bool
+  default     = false
+}
+

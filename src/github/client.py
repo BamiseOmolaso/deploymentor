@@ -10,60 +10,107 @@ from typing import Any, Dict, Optional
 
 import requests
 
+from src.utils.ssm import get_parameter
+
 logger = logging.getLogger(__name__)
 
 
 class GitHubClient:
     """
     Client for interacting with GitHub API.
-    
+
     Uses GitHub token from SSM Parameter Store for authentication.
     """
-    
+
     BASE_URL = "https://api.github.com"
-    
+
     def __init__(self, token: Optional[str] = None):
         """
         Initialize GitHub client.
-        
+
+        Token resolution order:
+        1. Explicit token parameter (if provided)
+        2. GITHUB_TOKEN environment variable (for local development)
+        3. SSM Parameter Store (for Lambda/production)
+
         Args:
-            token: GitHub personal access token (if None, will fetch from SSM)
+            token: GitHub personal access token (if None, will check env var then SSM)
         """
-        self.token = token or self._get_token_from_ssm()
+        self.token = token or self._get_token()
         self.session = requests.Session()
-        self.session.headers.update({
-            "Authorization": f"token {self.token}",
-            "Accept": "application/vnd.github.v3+json",
-        })
-    
+        self.session.headers.update(
+            {
+                "Authorization": f"token {self.token}",
+                "Accept": "application/vnd.github.v3+json",
+            }
+        )
+
+    def _get_token(self) -> str:
+        """
+        Get GitHub token from environment variable or SSM Parameter Store.
+
+        Priority order:
+        1. GITHUB_TOKEN environment variable (for local development)
+        2. SSM Parameter Store (for Lambda/production)
+
+        Returns:
+            GitHub personal access token
+
+        Raises:
+            ValueError: If token cannot be retrieved from any source
+        """
+        # First, check for GITHUB_TOKEN environment variable (local development)
+        env_token = os.getenv("GITHUB_TOKEN")
+        if env_token:
+            logger.info("Using GitHub token from GITHUB_TOKEN environment variable")
+            return env_token
+
+        # Fall back to SSM Parameter Store (Lambda/production)
+        logger.info("GITHUB_TOKEN not found, attempting to retrieve from SSM Parameter Store")
+        return self._get_token_from_ssm()
+
     def _get_token_from_ssm(self) -> str:
         """
         Fetch GitHub token from SSM Parameter Store.
-        
+
         Returns:
             GitHub personal access token
-            
+
         Raises:
-            ValueError: If token cannot be retrieved
+            ValueError: If token cannot be retrieved or parameter path not configured
         """
-        # TODO: Implement SSM parameter retrieval
-        # For now, raise error to ensure we don't hardcode secrets
-        raise NotImplementedError(
-            "SSM parameter retrieval not yet implemented. "
-            "Token must be provided via environment variable for local dev."
-        )
-    
-    def get_workflow_run(
-        self, owner: str, repo: str, run_id: int
-    ) -> Dict[str, Any]:
+        # Get SSM parameter path from environment variable
+        param_path = os.getenv("GITHUB_TOKEN_SSM_PARAM")
+
+        if not param_path:
+            raise ValueError(
+                "GitHub token not found. Neither GITHUB_TOKEN environment variable "
+                "nor GITHUB_TOKEN_SSM_PARAM is set. "
+                "For local development, set GITHUB_TOKEN. "
+                "For Lambda, set GITHUB_TOKEN_SSM_PARAM environment variable."
+            )
+
+        # Retrieve token from SSM Parameter Store
+        token = get_parameter(param_path, decrypt=True)
+
+        if not token:
+            raise ValueError(
+                f"GitHub token not found in SSM Parameter Store at path: {param_path}. "
+                "Please ensure the parameter exists and Lambda has read permissions."
+            )
+
+        logger.info(f"Successfully retrieved GitHub token from SSM: {param_path}")
+        return token
+
+    def get_workflow_run(self, owner: str, repo: str, run_id: int) -> Dict[str, Any]:
         """
         Fetch a specific workflow run.
-        
+
         Args:
             owner: Repository owner (username or org)
             repo: Repository name
             run_id: Workflow run ID
-            
+
         Returns:
             Workflow run data from GitHub API
         """
@@ -71,18 +118,16 @@ class GitHubClient:
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
-    
-    def get_workflow_run_jobs(
-        self, owner: str, repo: str, run_id: int
-    ) -> Dict[str, Any]:
+
+    def get_workflow_run_jobs(self, owner: str, repo: str, run_id: int) -> Dict[str, Any]:
         """
         Fetch jobs for a specific workflow run.
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
             run_id: Workflow run ID
-            
+
         Returns:
             Jobs data from GitHub API
         """
@@ -90,18 +135,16 @@ class GitHubClient:
         response = self.session.get(url)
         response.raise_for_status()
         return response.json()
-    
-    def get_workflow_run_logs(
-        self, owner: str, repo: str, run_id: int
-    ) -> bytes:
+
+    def get_workflow_run_logs(self, owner: str, repo: str, run_id: int) -> bytes:
         """
         Fetch logs for a workflow run.
-        
+
         Args:
             owner: Repository owner
             repo: Repository name
             run_id: Workflow run ID
-            
+
         Returns:
             Raw log data (zip file)
         """
@@ -109,4 +152,3 @@ class GitHubClient:
         response = self.session.get(url)
         response.raise_for_status()
         return response.content
-

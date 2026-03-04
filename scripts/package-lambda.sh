@@ -12,12 +12,20 @@ echo "📦 Packaging Lambda function..."
 echo "Source: $PROJECT_ROOT/src"
 echo "Output: $OUTPUT_FILE"
 
-cd "$PROJECT_ROOT/src"
+# Create package directory with src structure
+PACKAGE_DIR="$PROJECT_ROOT/lambda-package-temp"
+rm -rf "$PACKAGE_DIR"
+mkdir -p "$PACKAGE_DIR"
+
+# Copy src directory maintaining structure
+cp -r "$PROJECT_ROOT/src" "$PACKAGE_DIR/"
+
+cd "$PACKAGE_DIR"
 
 # Remove old zip if exists
 rm -f "$OUTPUT_FILE"
 
-# Create zip file
+# Create zip file with src/ directory structure
 zip -r "$OUTPUT_FILE" . \
     -x "*.pyc" \
     -x "__pycache__/*" \
@@ -25,6 +33,10 @@ zip -r "$OUTPUT_FILE" . \
     -x "*.pyd" \
     -x ".DS_Store" \
     -x "*.git*"
+
+# Clean up
+cd "$PROJECT_ROOT"
+rm -rf "$PACKAGE_DIR"
 
 echo "✅ Lambda package created: $OUTPUT_FILE"
 echo ""

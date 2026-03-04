@@ -16,3 +16,9 @@ log_level = "INFO"
 lambda_timeout = 30
 lambda_memory_size = 256
 
+# GitHub repository for OIDC (format: owner/repo)
+github_repo = "BamiseOmolaso/deploymentor"
+
+# Create OIDC provider (set to false if it already exists)
+create_oidc_provider = false
+

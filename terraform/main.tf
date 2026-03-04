@@ -44,6 +44,7 @@ module "lambda" {
   handler       = "lambda_handler.handler"
   runtime       = "python3.12"
   timeout       = 30
+  layers        = ["arn:aws:lambda:us-east-1:827327671360:layer:deploymentor-dependencies:2"]  # Lambda Layer for requests
 
   environment_variables = {
     ENVIRONMENT     = var.environment
@@ -67,6 +68,20 @@ module "api_gateway" {
 
   tags = {
     Name = "${var.project_name}-api-${var.environment}"
+  }
+}
+
+# GitHub OIDC module (for CI/CD)
+module "github_oidc" {
+  source = "./modules/github_oidc"
+
+  project_name        = var.project_name
+  environment         = var.environment
+  github_repo         = var.github_repo != "" ? var.github_repo : "BamiseOmolaso/deploymentor"
+  create_oidc_provider = var.create_oidc_provider
+
+  tags = {
+    Name = "${var.project_name}-github-oidc-${var.environment}"
   }
 }
 

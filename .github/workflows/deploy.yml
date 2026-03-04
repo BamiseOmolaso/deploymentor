@@ -58,8 +58,7 @@ jobs:
 
       - name: Terraform Apply
         working-directory: terraform
-        continue-on-error: true
-        run: terraform apply -auto-approve tfplan || terraform apply -auto-approve -var="environment=prod" -refresh=false
+        run: terraform apply -auto-approve tfplan
 
       - name: Get API URL
         id: api_url

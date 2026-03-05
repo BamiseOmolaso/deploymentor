@@ -30,6 +30,7 @@ GitHub Actions → API Gateway HTTP API → AWS Lambda → AI Analysis → Respo
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Deploy infrastructure to AWS
 - **[GitHub OIDC Setup](docs/GITHUB_OIDC_SETUP.md)** - Configure secure CI/CD with OIDC
 - **[Security Practices](docs/SECURITY.md)** - Security best practices
+- **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common errors and solutions
 - **[Local Development](docs/LOCAL_DEVELOPMENT.md)** - Set up local development environment
 - **[Testing Guide](docs/TESTING.md)** - How to test the API
 - **[SSM Setup](docs/SSM_SETUP.md)** - Configure AWS SSM Parameter Store

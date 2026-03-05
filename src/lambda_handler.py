@@ -32,7 +32,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "httpMethod": event.get("httpMethod"),
         "requestId": (event.get("requestContext") or {}).get("requestId"),
     }
-    logger.info("Request: %s", safe)
+    logger.info("SANITIZED_REQUEST: %s", safe)
 
     # Extract HTTP method and path
     # API Gateway HTTP API v2 format

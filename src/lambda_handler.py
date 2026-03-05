@@ -26,7 +26,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Returns:
         API Gateway HTTP API response
     """
-    logger.info(f"Received event: {json.dumps(event)}")
+    # Log sanitized event (avoid logging sensitive headers/data)
+    safe = {
+        "path": event.get("path"),
+        "httpMethod": event.get("httpMethod"),
+        "requestId": (event.get("requestContext") or {}).get("requestId"),
+    }
+    logger.info("Request: %s", safe)
 
     # Extract HTTP method and path
     # API Gateway HTTP API v2 format

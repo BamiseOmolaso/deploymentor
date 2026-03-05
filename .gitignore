@@ -34,6 +34,10 @@ terraform.tfvars
 !*.example.tfvars
 .terraformrc
 terraform.rc
+# Terraform plan files
+tfplan
+tfplan*
+*.tfplan
 
 # IDE
 .vscode/

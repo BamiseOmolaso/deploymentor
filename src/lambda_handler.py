@@ -8,8 +8,7 @@ import json
 import logging
 from typing import Any, Dict
 
-from src.analyzers import WorkflowAnalyzer
-from src.github.client import GitHubClient
+from src.analyzers import LogAnalyzer
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -62,7 +61,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return _health_check()
 
     if path == "/analyze" and http_method == "POST":
-        return _analyze_workflow(event)
+        return _analyze_logs(event)
 
     # Default 404 response
     return {
@@ -87,15 +86,14 @@ def _health_check() -> Dict[str, Any]:
     }
 
 
-def _analyze_workflow(event: Dict[str, Any]) -> Dict[str, Any]:
+def _analyze_logs(event: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Analyze a GitHub Actions workflow run.
+    Analyze CI/CD logs and return root cause analysis.
 
     Expected request body:
     {
-        "owner": "username_or_org",
-        "repo": "repository_name",
-        "run_id": 123456789
+        "source": "github_actions",
+        "logs": "<string logs here>"
     }
     """
     try:
@@ -107,48 +105,26 @@ def _analyze_workflow(event: Dict[str, Any]) -> Dict[str, Any]:
             body = {}
 
         # Validate required fields
-        owner = body.get("owner")
-        repo = body.get("repo")
-        run_id = body.get("run_id")
+        source = body.get("source", "github_actions")
+        logs = body.get("logs")
 
-        if not owner:
-            return _error_response(400, "Missing required field: owner")
-        if not repo:
-            return _error_response(400, "Missing required field: repo")
-        if not run_id:
-            return _error_response(400, "Missing required field: run_id")
+        if logs is None:
+            return _error_response(400, "Missing required field: logs")
 
-        # Validate run_id is an integer
+        if not isinstance(logs, str):
+            return _error_response(400, "Field 'logs' must be a string")
+
+        logger.info(f"Analyzing logs from source: {source}")
+
+        # Initialize log analyzer
+        analyzer = LogAnalyzer()
+
+        # Analyze logs
         try:
-            run_id = int(run_id)
-        except (ValueError, TypeError):
-            return _error_response(400, "run_id must be an integer")
-
-        logger.info(f"Analyzing workflow: {owner}/{repo} run_id={run_id}")
-
-        # Initialize GitHub client and analyzer
-        github_client = GitHubClient()
-        analyzer = WorkflowAnalyzer()
-
-        # Fetch workflow data
-        try:
-            workflow_run = github_client.get_workflow_run(owner, repo, run_id)
-            jobs = github_client.get_workflow_run_jobs(owner, repo, run_id)
+            analysis = analyzer.analyze(logs, source)
         except Exception as e:
-            logger.error(f"Error fetching workflow data: {e}")
-            error_msg = str(e)
-            if "404" in error_msg or "Not Found" in error_msg:
-                return _error_response(
-                    404, f"Workflow run not found: {owner}/{repo} run_id={run_id}"
-                )
-            return _error_response(500, f"Error fetching workflow data: {error_msg}")
-
-        # Analyze workflow
-        try:
-            analysis = analyzer.analyze(workflow_run, jobs)
-        except Exception as e:
-            logger.error(f"Error analyzing workflow: {e}")
-            return _error_response(500, f"Error analyzing workflow: {str(e)}")
+            logger.error(f"Error analyzing logs: {e}")
+            return _error_response(500, f"Error analyzing logs: {str(e)}")
 
         # Return analysis result
         return {

@@ -1,0 +1,6 @@
+# Bootstrap uses local state (no backend)
+*.tfstate
+*.tfstate.*
+.terraform/
+.terraform.lock.hcl
+

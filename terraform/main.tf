@@ -8,13 +8,15 @@ terraform {
     }
   }
 
-  # Backend configuration (to be configured per environment)
-  # Uncomment and configure for remote state:
-  # backend "s3" {
-  #   bucket = "deploymentor-terraform-state"
-  #   key    = "deploymentor/terraform.tfstate"
-  #   region = "us-east-1"
-  # }
+  # Remote state backend (configure after running terraform/bootstrap)
+  # See terraform/bootstrap/README.md for setup instructions
+  backend "s3" {
+    bucket         = "deploymentor-terraform-state"
+    key            = "deploymentor/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "deploymentor-terraform-locks"
+    encrypt        = true
+  }
 }
 
 provider "aws" {

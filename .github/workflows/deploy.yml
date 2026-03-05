@@ -51,7 +51,7 @@ jobs:
 
       - name: Terraform Init
         working-directory: terraform
-        run: terraform init
+        run: terraform init -input=false
 
       - name: Import existing resources (if any)
         working-directory: terraform

@@ -67,6 +67,14 @@ deploymentor/
 └── README.md             # This file
 ```
 
+## 🚀 Quick Start
+
+**Want to deploy quickly?** → **[See QUICKSTART.md](QUICKSTART.md)** (10 steps, under 10 minutes)
+
+**Want detailed instructions?** → Continue reading below
+
+---
+
 ## 🚀 Deploy Your Own Copy
 
 Follow these simple steps to deploy DeployMentor to your own AWS account. This guide assumes you're new to AWS, Terraform, and Python.

@@ -89,11 +89,20 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "ssm:GetParameter",
           "ssm:GetParameters",
           "ssm:GetParametersByPath",
+        ]
+        Resource = "*"
+      },
+      {
+        Effect = "Allow"
+        Action = [
           "s3:GetObject",
           "s3:PutObject",
           "s3:ListBucket",
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:s3:::deploymentor-terraform-state",
+          "arn:aws:s3:::deploymentor-terraform-state/*",
+        ]
       },
       {
         Effect = "Allow"

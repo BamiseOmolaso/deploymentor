@@ -68,258 +68,41 @@ deploymentor/
 
 ## 🚀 Deploy Your Own Copy
 
-Follow these steps to deploy DeployMentor to your own AWS account.
+Follow these simple steps to deploy DeployMentor to your own AWS account. This guide assumes you're new to AWS, Terraform, and Python.
 
-### Prerequisites
+### 1. Prerequisites
 
-Before you begin, ensure you have:
+Before you begin, make sure you have:
 
-- **AWS Account** with appropriate permissions (S3, Lambda, API Gateway, IAM, SSM, DynamoDB)
-- **AWS CLI** installed and configured (`aws configure`)
-- **Terraform** >= 1.5.0 installed (`terraform version`)
-- **Python** 3.12+ installed (`python3 --version`)
-- **GitHub Personal Access Token** with `repo` scope (for analyzing private repos)
+#### AWS Account
+- Create a free AWS account at [aws.amazon.com](https://aws.amazon.com)
+- You'll need permissions for: S3, Lambda, API Gateway, IAM, SSM Parameter Store, DynamoDB
 
-### Step-by-Step Deployment
-
-#### Step 1: Clone the Repository
+#### AWS CLI
+Install and configure the AWS CLI:
 
 ```bash
-git clone https://github.com/BamiseOmolaso/deploymentor.git
-cd deploymentor
+# Install AWS CLI (macOS)
+brew install awscli
+
+# Install AWS CLI (Linux)
+curl "https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip" -o "awscliv2.zip"
+unzip awscliv2.zip
+sudo ./aws/install
+
+# Configure AWS CLI
+aws configure
+# Enter your AWS Access Key ID, Secret Access Key, Region (e.g., us-east-1), and Output format (json)
+
+# Verify it works
+aws sts get-caller-identity
 ```
 
-#### Step 2: Set Up Python Environment
+**Expected output**: Your AWS account ID and user ARN.
 
-```bash
-# Create virtual environment
-python3 -m venv venv
+#### Terraform
+Install Terraform:
 
-# Activate virtual environment
-source venv/bin/activate  # On macOS/Linux
-# OR
-venv\Scripts\activate     # On Windows
-
-# Install dependencies
-pip install -r requirements-dev.txt
-```
-
-#### Step 3: Run Tests
-
-Verify everything works locally:
-
-```bash
-pytest -q
-```
-
-**Expected**: All tests should pass (41 tests).
-
-#### Step 4: Bootstrap Terraform Backend
-
-Before deploying the main infrastructure, create the S3 bucket and DynamoDB table for Terraform state:
-
-```bash
-cd terraform/bootstrap
-
-# Initialize Terraform
-terraform init
-
-# Review what will be created
-terraform plan
-
-# Create backend resources
-terraform apply
-```
-
-**What this creates:**
-- S3 bucket for Terraform state (with encryption and versioning)
-- DynamoDB table for state locking (prevents concurrent modifications)
-
-**Note**: The bucket name defaults to `deploymentor-terraform-state`. If this name is taken, edit `terraform/bootstrap/variables.tf` to use a unique name.
-
-#### Step 5: Configure GitHub Token in AWS
-
-Store your GitHub Personal Access Token in AWS SSM Parameter Store:
-
-```bash
-aws ssm put-parameter \
-  --name "/deploymentor/github/token" \
-  --value "ghp_your_token_here" \
-  --type "SecureString" \
-  --region us-east-1
-```
-
-See [SSM Setup Guide](docs/SSM_SETUP.md) for detailed instructions.
-
-#### Step 6: Deploy Main Infrastructure
-
-```bash
-# Navigate to main terraform directory
-cd ../  # Back to terraform/
-
-# Initialize Terraform (will migrate state to S3)
-terraform init -migrate-state
-
-# Review deployment plan
-terraform plan -var="environment=prod"
-
-# Deploy infrastructure
-terraform apply -var="environment=prod"
-```
-
-**What this creates:**
-- Lambda function
-- API Gateway HTTP API
-- IAM roles and policies
-- CloudWatch log groups
-
-#### Step 7: Test the API
-
-Get your API URL from Terraform output:
-
-```bash
-terraform output api_url
-```
-
-Then test the health endpoint:
-
-```bash
-# Replace with your actual API URL
-curl https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/health
-```
-
-**Expected response:**
-```json
-{"status":"healthy","service":"deploymentor","version":"0.1.0"}
-```
-
-#### Step 8: View Logs
-
-Monitor Lambda function logs:
-
-```bash
-aws logs tail "/aws/lambda/deploymentor-prod" --since 10m --follow
-```
-
-You should see sanitized request logs like:
-```
-INFO SANITIZED_REQUEST: {'path': '/health', 'httpMethod': 'GET', 'requestId': '...'}
-```
-
-### Next Steps
-
-- **Analyze a workflow**: See [API Usage Guide](docs/API_USAGE.md)
-- **Set up CI/CD**: See [GitHub OIDC Setup](docs/GITHUB_OIDC_SETUP.md)
-- **Monitor costs**: See Cost Notes section below
-
-### Prerequisites
-
-- Python 3.12+
-- Terraform >= 1.5
-- Docker & Docker Compose
-- AWS CLI configured
-- GitHub repository with Actions enabled
-
-### Local Development
-
-```bash
-# Start local development environment
-docker-compose up
-
-# Run tests
-pytest tests/
-
-# Format code
-black src/
-```
-
-### Deployment
-
-See [DEPLOYMENT.md](./docs/DEPLOYMENT.md) for detailed deployment instructions.
-
-## 🔒 Security
-
-- **No hardcoded secrets** - All secrets in SSM Parameter Store
-- **Least privilege IAM** - Minimal required permissions
-- **OIDC authentication** - No AWS access keys in GitHub
-- **Security scanning** - Automated checks in CI
-
-See [SECURITY.md](./docs/SECURITY.md) for security practices.
-
-## 💰 Cost Notes
-
-DeployMentor is designed to stay within a **$5-10/month** budget.
-
-### Monthly Cost Breakdown (Estimated)
-
-| Service | Usage | Cost |
-|---------|-------|------|
-| **Lambda** | 1M requests, 128MB, 1s avg | ~$0.20 |
-| **API Gateway** | 1M requests (HTTP API) | ~$1.00 |
-| **CloudWatch Logs** | 5GB storage, 1M ingestion | ~$0.50 |
-| **CloudWatch Metrics** | Standard metrics | Free |
-| **SSM Parameter Store** | 1 parameter | Free |
-| **S3 (Terraform State)** | <1GB storage | ~$0.02 |
-| **DynamoDB (Locks)** | Pay-per-request | ~$0.01 |
-| **Total** | | **~$1.73/month** |
-
-### Cost Optimization Tips
-
-1. **CloudWatch Log Retention**: Default is 7 days. Reduce to 3 days to save ~$0.20/month
-   - Edit `terraform/modules/lambda/main.tf`: `log_retention_days = 3`
-
-2. **Lambda Memory**: 128MB is sufficient for most workloads. Only increase if needed.
-
-3. **API Gateway**: HTTP API is cheaper than REST API. Already using HTTP API.
-
-4. **Free Tier**: AWS Free Tier includes:
-   - 1M Lambda requests/month
-   - 1M API Gateway requests/month
-   - 5GB S3 storage
-   - 25GB DynamoDB storage
-
-### Monitoring Costs
-
-Check your AWS bill monthly:
-```bash
-# View CloudWatch billing metrics
-aws ce get-cost-and-usage \
-  --time-period Start=2024-01-01,End=2024-01-31 \
-  --granularity MONTHLY \
-  --metrics BlendedCost
-```
-
-Or use AWS Cost Explorer in the console.
-
-## 🔧 Troubleshooting
-
-### Common Issues
-
-#### "pytest: command not found"
-**Problem**: pytest is not installed or virtual environment is not activated.
-
-**Solution**:
-```bash
-source venv/bin/activate  # Activate venv
-pip install -r requirements-dev.txt  # Install dependencies
-pytest -q  # Run tests
-```
-
-#### "Python version mismatch"
-**Problem**: Wrong Python version (need 3.12+).
-
-**Solution**:
-```bash
-python3 --version  # Check version
-# If < 3.12, install Python 3.12+
-# macOS: brew install python@3.12
-# Then: python3.12 -m venv venv
-```
-
-#### "terraform: command not found"
-**Problem**: Terraform is not installed.
-
-**Solution**:
 ```bash
 # macOS
 brew install terraform
@@ -333,73 +116,261 @@ sudo mv terraform /usr/local/bin/
 terraform version
 ```
 
+**Expected**: Terraform v1.5.0 or higher.
+
+#### Python 3.12+
+Check your Python version:
+
+```bash
+python3 --version
+```
+
+If you don't have Python 3.12+, install it:
+
+```bash
+# macOS (using pyenv - recommended)
+brew install pyenv
+pyenv install 3.12.0
+pyenv global 3.12.0
+
+# Or use Homebrew directly
+brew install python@3.12
+
+# Linux
+sudo apt update
+sudo apt install python3.12 python3.12-venv
+```
+
+**Verify**: `python3 --version` should show 3.12.0 or higher.
+
+### 2. Quickstart (Local Setup)
+
+Set up the project locally and verify everything works:
+
+```bash
+# Clone the repository
+git clone https://github.com/BamiseOmolaso/deploymentor.git
+cd deploymentor
+
+# Create Python virtual environment
+python3 -m venv venv
+
+# Activate virtual environment
+source venv/bin/activate  # macOS/Linux
+# OR
+venv\Scripts\activate     # Windows
+
+# Install dependencies
+pip install -r requirements.txt
+pip install -r requirements-dev.txt
+
+# Run tests to verify everything works
+pytest -q
+```
+
+**Expected**: All 41 tests should pass. If tests fail, see Troubleshooting section below.
+
+### 3. Deploy (Terraform)
+
+Deploy the infrastructure to AWS. This is a two-phase process:
+
+#### Phase 1: Bootstrap Backend
+
+First, create the S3 bucket and DynamoDB table for Terraform state storage:
+
+```bash
+cd terraform/bootstrap
+
+# Initialize Terraform
+terraform init
+
+# Create backend resources (S3 bucket + DynamoDB table)
+terraform apply
+```
+
+**What this does**: Creates secure storage for Terraform state files. You'll be prompted to confirm - type `yes`.
+
+**Note**: If you see "bucket already exists", edit `terraform/bootstrap/variables.tf` and change `state_bucket_name` to something unique.
+
+#### Phase 2: Deploy Infrastructure
+
+Now deploy the main application:
+
+```bash
+# Go back to main terraform directory
+cd ../
+
+# Initialize Terraform (migrates state to S3)
+terraform init -migrate-state
+# When prompted "Do you want to copy existing state?", type: yes
+
+# Deploy infrastructure
+terraform apply -var="environment=prod"
+# Type: yes when prompted
+```
+
+**What this creates**:
+- Lambda function (runs your code)
+- API Gateway (HTTP API endpoint)
+- IAM roles (permissions)
+- CloudWatch logs (monitoring)
+
+**Before deploying**, you need to store your GitHub token:
+
+```bash
+# Store GitHub Personal Access Token in AWS
+aws ssm put-parameter \
+  --name "/deploymentor/github/token" \
+  --value "ghp_your_token_here" \
+  --type "SecureString" \
+  --region us-east-1
+```
+
+Get a GitHub token: [GitHub Settings → Developer settings → Personal access tokens](https://github.com/settings/tokens). Create a token with `repo` scope.
+
+#### Get Your API URL
+
+After deployment completes, get your API URL:
+
+```bash
+cd terraform
+terraform output api_gateway_url
+```
+
+**Expected output**: `https://xxxxx.execute-api.us-east-1.amazonaws.com`
+
+### 4. Test
+
+Test that everything is working:
+
+```bash
+# Replace with your actual API URL from above
+curl https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/health
+```
+
+**Expected response**:
+```json
+{"status":"healthy","service":"deploymentor","version":"0.1.0"}
+```
+
+#### View Logs
+
+Check Lambda function logs:
+
+```bash
+# Replace 'prod' with your environment if different
+aws logs tail "/aws/lambda/deploymentor-prod" --since 10m
+```
+
+**Expected**: You should see log entries showing your health check request.
+
+### 5. Cost Notes
+
+DeployMentor is designed to be **low-cost** (~$1.73/month):
+
+| Service | Monthly Cost |
+|---------|--------------|
+| Lambda (1M requests) | ~$0.20 |
+| API Gateway (1M requests) | ~$1.00 |
+| CloudWatch Logs | ~$0.50 |
+| S3 Backend (state storage) | ~$0.02 |
+| DynamoDB (state locking) | ~$0.01 |
+| **Total** | **~$1.73/month** |
+
+**AWS Free Tier** includes:
+- 1M Lambda requests/month (free)
+- 1M API Gateway requests/month (free)
+- 5GB S3 storage (free)
+- 25GB DynamoDB storage (free)
+
+For low usage, you may pay **$0/month** thanks to the free tier!
+
+### 6. Troubleshooting
+
+#### "pytest: command not found"
+**Problem**: Virtual environment not activated or dependencies not installed.
+
+**Solution**:
+```bash
+source venv/bin/activate  # Activate venv first
+pip install -r requirements-dev.txt
+pytest -q
+```
+
+#### "ModuleNotFoundError: No module named 'src'"
+**Problem**: Running Python incorrectly.
+
+**Solution**: Use `python -m` to run modules:
+```bash
+# Wrong: python src/lambda_handler.py
+# Correct: python -m src.lambda_handler
+```
+
+#### "terraform init" asks about backend migration
+**Problem**: Normal prompt when migrating from local to S3 backend.
+
+**Solution**: Type `yes` when asked "Do you want to copy existing state to the new backend?"
+
 #### "Error: No valid credential sources found"
-**Problem**: AWS CLI is not configured.
+**Problem**: AWS CLI not configured.
 
 **Solution**:
 ```bash
 aws configure
-# Enter: AWS Access Key ID, Secret Access Key, Region, Output format
-aws sts get-caller-identity  # Verify credentials
+# Enter your AWS credentials
+aws sts get-caller-identity  # Verify it works
 ```
 
+#### "Error: S3 bucket already exists"
+**Problem**: Bucket name is taken (must be globally unique).
+
+**Solution**:
+1. Edit `terraform/bootstrap/variables.tf`
+2. Change `state_bucket_name = "deploymentor-terraform-state"` to something unique like `"deploymentor-terraform-state-yourname"`
+3. Also update `terraform/main.tf` backend bucket name to match
+4. Run `terraform apply` again
+
 #### "Error: Backend configuration changed"
-**Problem**: Terraform backend was updated but state wasn't migrated.
+**Problem**: Need to migrate state to new backend.
 
 **Solution**:
 ```bash
 cd terraform
 terraform init -migrate-state
-# Answer "yes" when prompted to migrate state
+# Type: yes when prompted
 ```
 
-#### "Error: S3 bucket already exists"
-**Problem**: Bucket name in bootstrap is already taken.
+### 🔒 Security Note
 
-**Solution**:
-1. Edit `terraform/bootstrap/variables.tf`
-2. Change `state_bucket_name` to a unique name (e.g., `deploymentor-terraform-state-yourname`)
-3. Run `terraform apply` again
+**Important**: Never commit these files to git:
+- `terraform.tfstate` or `terraform.tfstate.backup` (Terraform state files)
+- `.env` (environment variables with secrets)
+- `*.tfvars` (variable files with secrets)
+- Any files containing AWS keys or tokens
 
-#### "Error: ResourceAlreadyExistsException"
-**Problem**: Resources already exist in AWS (from previous deployment).
+**Always use**:
+- AWS SSM Parameter Store for secrets (as shown in Step 3)
+- Remote state backend (S3) for Terraform state
+- Environment variables for local development (`.env` file, not committed)
 
-**Solution**:
-```bash
-# Import existing resources
-./scripts/terraform-import-existing.sh prod
-# Then run terraform apply
-```
+The `.gitignore` file is already configured to prevent committing these files.
 
-#### "404 Not Found" from API Gateway
-**Problem**: Lambda handler not receiving requests correctly.
+### Next Steps
 
-**Solution**:
-1. Check Lambda logs: `aws logs tail "/aws/lambda/deploymentor-prod" --since 10m`
-2. Verify API Gateway integration: Check Terraform outputs
-3. Test Lambda directly: `aws lambda invoke --function-name deploymentor-prod output.json`
+- **Analyze a workflow**: See [API Usage Guide](docs/API_USAGE.md)
+- **Set up CI/CD**: See [GitHub OIDC Setup](docs/GITHUB_OIDC_SETUP.md)
+- **Monitor costs**: Check AWS Cost Explorer monthly
 
-#### "Error: Missing required field: owner"
-**Problem**: API request is missing required fields.
 
-**Solution**:
-```bash
-# Ensure request body includes all required fields
-curl -X POST https://YOUR_API_URL/analyze \
-  -H "Content-Type: application/json" \
-  -d '{
-    "owner": "username",
-    "repo": "repo-name",
-    "run_id": 123456789
-  }'
-```
+## 🔒 Security
 
-### Getting Help
+- **No hardcoded secrets** - All secrets in SSM Parameter Store
+- **Least privilege IAM** - Minimal required permissions
+- **OIDC authentication** - No AWS access keys in GitHub
+- **Security scanning** - Automated checks in CI
 
-- **Check logs**: `aws logs tail "/aws/lambda/deploymentor-prod" --since 1h`
-- **Review documentation**: See [Troubleshooting Guide](docs/TROUBLESHOOTING.md)
-- **Verify infrastructure**: `cd terraform && terraform show`
-- **Test locally**: `pytest -v` to see detailed test output
+See [SECURITY.md](./docs/SECURITY.md) for security practices.
+
 
 ## 📚 Documentation
 

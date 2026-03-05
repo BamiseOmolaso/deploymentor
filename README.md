@@ -26,6 +26,7 @@ GitHub Actions → API Gateway HTTP API → AWS Lambda → AI Analysis → Respo
 
 ## 📚 Documentation
 
+- **[🚀 Quick Start Guide](QUICKSTART.md)** - Deploy in under 10 minutes (recommended for first-time users)
 - **[API Usage Guide](docs/API_USAGE.md)** - How to use the DeployMentor API
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Deploy infrastructure to AWS
 - **[GitHub OIDC Setup](docs/GITHUB_OIDC_SETUP.md)** - Configure secure CI/CD with OIDC

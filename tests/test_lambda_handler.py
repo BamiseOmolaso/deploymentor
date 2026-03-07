@@ -1,5 +1,7 @@
 """
 Tests for Lambda handler.
+
+Test PR to verify CI auto-triggers on test file changes.
 """
 
 import json

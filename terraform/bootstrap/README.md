@@ -29,7 +29,7 @@ terraform plan
 
 This will create:
 - S3 bucket for Terraform state (with versioning and encryption)
-- DynamoDB table for state locking (pay-per-request, free tier friendly)
+- **Note**: Modern Terraform uses `use_lockfile = true` which stores locks in S3, so no DynamoDB table is needed
 
 ### 3. Apply
 
@@ -52,14 +52,16 @@ Copy the backend configuration from the output and add it to `terraform/main.tf`
 ```hcl
 terraform {
   backend "s3" {
-    bucket         = "deploymentor-terraform-state"
-    key            = "deploymentor/terraform.tfstate"
-    region         = "us-east-1"
-    dynamodb_table = "deploymentor-terraform-locks"
-    encrypt        = true
+    bucket       = "deploymentor-terraform-state"
+    key          = "deploymentor/terraform.tfstate"
+    region       = "us-east-1"
+    use_lockfile = true
+    encrypt      = true
   }
 }
 ```
+
+**Important**: The GitHub Actions IAM role must have `s3:DeleteObject` permission on the state bucket to release `.tflock` files.
 
 ### 6. Migrate State
 
@@ -75,15 +77,14 @@ This will migrate your local state to S3.
 ## Cost
 
 - **S3**: ~$0.023 per GB/month (first 5GB free)
-- **DynamoDB**: Pay-per-request (free tier: 25GB storage, 25 read/write units)
-- **Estimated**: < $0.50/month for state storage
+- **Estimated**: < $0.10/month for state storage (no DynamoDB needed with `use_lockfile`)
 
 ## Security
 
 - ✅ State bucket has encryption enabled
 - ✅ Public access blocked
 - ✅ Versioning enabled (can recover deleted state)
-- ✅ DynamoDB prevents concurrent modifications
+- ✅ `use_lockfile` prevents concurrent modifications (stores `.tflock` files in S3)
 
 ## Cleanup
 

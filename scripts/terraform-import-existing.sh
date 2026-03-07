@@ -1,10 +1,18 @@
 #!/bin/bash
 # Import existing Terraform resources if they exist
 # This script checks if resources exist and imports them into Terraform state
-# Must be run from the terraform directory
+# Must be run from terraform/environments/{environment}/ directory
+# Usage: ../../../scripts/terraform-import-existing.sh <environment>
+# Example: From terraform/environments/dev/, run: ../../../scripts/terraform-import-existing.sh dev
 
 # Set ENVIRONMENT from first argument, default to prod
 ENVIRONMENT="${1:-prod}"
+
+# Validate environment
+if [[ ! "$ENVIRONMENT" =~ ^(dev|staging|prod)$ ]]; then
+  echo "❌ Error: Environment must be one of: dev, staging, prod"
+  exit 1
+fi
 
 FUNCTION_NAME="deploymentor-${ENVIRONMENT}"
 LOG_GROUP_LAMBDA="/aws/lambda/${FUNCTION_NAME}"
@@ -27,8 +35,8 @@ import_if_exists() {
     fi
     
     echo "  Attempting to import: ${resource_address}..."
-    # Use -var flag to prevent interactive prompts
-    if terraform import -var="environment=${ENVIRONMENT}" "${resource_address}" "${resource_id}" 2>&1; then
+    # Import command (tfvars file should provide environment variable)
+    if terraform import "${resource_address}" "${resource_id}" 2>&1; then
         echo "  ✅ Imported: ${resource_address}"
         return 0
     else

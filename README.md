@@ -185,7 +185,7 @@ Deploy the infrastructure to AWS. This is a two-phase process:
 
 #### Phase 1: Bootstrap Backend
 
-First, create the S3 bucket and DynamoDB table for Terraform state storage:
+First, create the S3 bucket for Terraform state storage (modern Terraform uses `use_lockfile` instead of DynamoDB):
 
 ```bash
 cd terraform/bootstrap
@@ -193,11 +193,13 @@ cd terraform/bootstrap
 # Initialize Terraform
 terraform init
 
-# Create backend resources (S3 bucket + DynamoDB table)
+# Create backend resources (S3 bucket for state + lock files)
 terraform apply
 ```
 
-**What this does**: Creates secure storage for Terraform state files. You'll be prompted to confirm - type `yes`.
+**What this does**: Creates secure storage for Terraform state files. Modern Terraform uses `use_lockfile = true` which stores locks as `.tflock` files in S3 (no DynamoDB needed). You'll be prompted to confirm - type `yes`.
+
+**Important**: The GitHub Actions IAM role must have `s3:DeleteObject` permission on the state bucket to release lock files.
 
 **Note**: If you see "bucket already exists", edit `terraform/bootstrap/variables.tf` and change `state_bucket_name` to something unique.
 
@@ -282,15 +284,14 @@ DeployMentor is designed to be **low-cost** (~$1.73/month):
 | Lambda (1M requests) | ~$0.20 |
 | API Gateway (1M requests) | ~$1.00 |
 | CloudWatch Logs | ~$0.50 |
-| S3 Backend (state storage) | ~$0.02 |
-| DynamoDB (state locking) | ~$0.01 |
+| S3 Backend (state storage + lock files) | ~$0.02 |
 | **Total** | **~$1.73/month** |
 
 **AWS Free Tier** includes:
 - 1M Lambda requests/month (free)
 - 1M API Gateway requests/month (free)
 - 5GB S3 storage (free)
-- 25GB DynamoDB storage (free)
+- 5GB S3 storage (free) - includes state and lock files
 
 For low usage, you may pay **$0/month** thanks to the free tier!
 

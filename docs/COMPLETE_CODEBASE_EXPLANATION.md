@@ -611,9 +611,78 @@ backend "s3" {
 
 ## CI/CD Pipeline
 
-### Workflow File (`.github/workflows/deploy.yml`)
+### Workflow Architecture
 
-**Trigger**: Push to `main` branch (when `src/`, `terraform/`, or `.github/workflows/deploy.yml` changes)
+The CI/CD pipeline consists of two workflows that work together:
+
+1. **CI Workflow** (`.github/workflows/ci.yml`): Runs on every push/PR
+   - Code quality checks (formatting, linting)
+   - Unit tests
+   - Security scans
+   - Terraform validation
+
+2. **Deploy Workflow** (`.github/workflows/deploy.yml`): Runs only after CI passes
+   - Infrastructure deployment
+   - Lambda function update
+   - Health checks
+
+### CI Workflow (`.github/workflows/ci.yml`)
+
+**Trigger**: 
+- Push to `main` or `develop` branches
+- Pull requests to `main` or `develop`
+
+**Jobs**:
+
+1. **Lint & Format Check**:
+   - Black formatting check
+   - isort import sorting check
+   - Flake8 linting
+   - MyPy type checking (non-blocking)
+
+2. **Run Tests**:
+   - Full test suite with pytest
+   - Code coverage reporting
+   - Uploads coverage to Codecov
+
+3. **Security Scan**:
+   - Safety check for vulnerable dependencies
+   - Hardcoded secrets detection
+
+4. **Terraform Validate**:
+   - Terraform format check
+   - Terraform validation
+
+**All jobs must pass** for CI to be considered successful.
+
+### Deploy Workflow (`.github/workflows/deploy.yml`)
+
+**Trigger**: `workflow_run` - Triggers when CI workflow completes
+
+**Important**: The deploy workflow only runs if:
+- CI workflow completes (not cancelled)
+- CI workflow conclusion is `success`
+
+**Configuration**:
+```yaml
+on:
+  workflow_run:
+    workflows: ["CI"]
+    types:
+      - completed
+    branches:
+      - main
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' }}
+```
+
+**What this means**:
+- Deploy workflow waits for CI to finish
+- If CI fails, deploy never starts (skipped)
+- If CI passes, deploy runs automatically
+- Only triggers on `main` branch
 
 **Steps**:
 
@@ -632,6 +701,45 @@ backend "s3" {
 10. **Terraform Apply**: `terraform apply -auto-approve tfplan`
 11. **Get API URL**: `terraform output api_gateway_url`
 12. **Health Check**: `curl ${API_URL}/health`
+
+### Workflow Gating Benefits
+
+**Why gate deploy on CI success?**
+- **Prevents bad deployments**: Code with failing tests never reaches production
+- **Catches issues early**: Formatting/linting errors caught before deployment
+- **Saves time**: No point deploying if tests fail
+- **Security**: Security scans must pass before deployment
+- **Infrastructure safety**: Terraform validation prevents invalid configs
+
+**Flow Diagram**:
+```
+Push to main
+    ↓
+CI Workflow starts
+    ↓
+┌─────────────────┐
+│ Lint & Format   │
+│ Tests           │
+│ Security Scan   │
+│ Terraform Check │
+└────────┬────────┘
+         │
+    ┌────┴────┐
+    │         │
+    ▼         ▼
+  Pass      Fail
+    │         │
+    │         └──→ Deploy skipped ❌
+    │
+    ▼
+Deploy Workflow starts ✅
+    ↓
+Infrastructure deployment
+    ↓
+Health check
+    ↓
+Deployment complete ✅
+```
 
 ### OIDC Authentication
 

@@ -105,7 +105,29 @@ terraform apply -var="environment=dev"
 
 ### CI/CD Deployment
 
-Push to `main` branch - GitHub Actions will deploy automatically.
+The deployment process uses a two-stage pipeline:
+
+1. **CI Workflow** (`.github/workflows/ci.yml`):
+   - Runs automatically on every push to `main` or `develop`
+   - Performs code quality checks (formatting, linting)
+   - Runs all 52 unit tests
+   - Scans for security issues
+   - Validates Terraform configuration
+
+2. **Deploy Workflow** (`.github/workflows/deploy.yml`):
+   - **Only runs after CI workflow passes successfully**
+   - Triggers via `workflow_run` when CI completes
+   - Deploys infrastructure via Terraform
+   - Updates Lambda function
+   - Performs health checks
+
+**Important**: The deploy workflow is gated on CI success. If CI fails (tests, linting, formatting), deployment is automatically skipped. This prevents bad code from reaching production.
+
+**To deploy**:
+1. Push your changes to `main` branch
+2. CI workflow runs automatically
+3. If CI passes, deploy workflow runs automatically
+4. If CI fails, fix the issues and push again
 
 ## Step 5: Verify Deployment
 

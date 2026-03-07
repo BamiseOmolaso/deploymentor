@@ -100,6 +100,36 @@ DeployMentor is a serverless application that analyzes failed GitHub Actions wor
 - **Concurrent executions**: Default limit (1000) sufficient for MVP
 - **API Gateway**: Handles millions of requests
 
+## CI/CD Architecture
+
+### Workflow Gating
+
+The deployment process uses a two-stage CI/CD pipeline:
+
+1. **CI Workflow**: Runs on every push/PR
+   - Code quality checks (formatting, linting)
+   - Unit tests (52 tests)
+   - Security scans
+   - Terraform validation
+
+2. **Deploy Workflow**: Only runs after CI passes
+   - Triggers via `workflow_run` when CI completes successfully
+   - Infrastructure deployment via Terraform
+   - Lambda function updates
+   - Health checks
+
+**Benefits**:
+- Prevents bad deployments (failing tests never reach production)
+- Catches issues early (formatting/linting before deployment)
+- Security scans must pass before deployment
+- Terraform validation prevents invalid configs
+
+### Authentication
+
+- **GitHub Actions → AWS**: OIDC (no AWS keys stored)
+- **Lambda → GitHub API**: Token from SSM Parameter Store
+- **All secrets**: Stored in SSM, never in code
+
 ## Monitoring & Observability
 
 - **CloudWatch Logs**: All Lambda executions logged

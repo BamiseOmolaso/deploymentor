@@ -78,20 +78,99 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
+      # Lambda permissions — scope to deploymentor-* functions only
       {
         Effect = "Allow"
         Action = [
-          "lambda:*",
-          "apigateway:*",
-          "iam:*",
-          "logs:*",
-          "cloudwatch:*",
+          "lambda:UpdateFunctionCode",
+          "lambda:UpdateFunctionConfiguration",
+          "lambda:GetFunction",
+          "lambda:GetFunctionConfiguration",
+          "lambda:PublishVersion",
+          "lambda:CreateFunction",
+          "lambda:DeleteFunction",
+          "lambda:AddPermission",
+          "lambda:RemovePermission",
+          "lambda:GetPolicy",
+        ]
+        Resource = "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:deploymentor-*"
+      },
+      # IAM permissions — scope to deploymentor-* roles only
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:GetRole",
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:AttachRolePolicy",
+          "iam:DetachRolePolicy",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:PassRole",
+          "iam:ListRolePolicies",
+          "iam:ListAttachedRolePolicies",
+        ]
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/deploymentor-*"
+      },
+      # Logs — scope to deploymentor log groups only
+      {
+        Effect = "Allow"
+        Action = [
+          "logs:CreateLogGroup",
+          "logs:DeleteLogGroup",
+          "logs:PutRetentionPolicy",
+          "logs:DescribeLogGroups",
+        ]
+        Resource = [
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/deploymentor-*",
+          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/apigateway/deploymentor-*",
+        ]
+      },
+      # API Gateway — scope to deploymentor APIs only
+      {
+        Effect = "Allow"
+        Action = [
+          "apigateway:GET",
+          "apigateway:POST",
+          "apigateway:PUT",
+          "apigateway:DELETE",
+          "apigateway:PATCH",
+        ]
+        Resource = [
+          "arn:aws:apigateway:${data.aws_region.current.name}::/apis/*",
+          "arn:aws:apigateway:${data.aws_region.current.name}::/apis",
+        ]
+      },
+      # CloudWatch — scope to deploymentor metrics only
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricData",
+          "cloudwatch:GetMetricStatistics",
+          "cloudwatch:ListMetrics",
+        ]
+        Resource = "*"
+        Condition = {
+          StringEquals = {
+            "cloudwatch:namespace" = "AWS/Lambda"
+          }
+        }
+      },
+      # SSM — scope to deploymentor parameters only
+      {
+        Effect = "Allow"
+        Action = [
           "ssm:GetParameter",
           "ssm:GetParameters",
           "ssm:GetParametersByPath",
+          "ssm:PutParameter",
+          "ssm:DeleteParameter",
+          "ssm:DescribeParameters",
         ]
-        Resource = "*"
+        Resource = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/deploymentor/*"
       },
+      # S3 state — scope to deploymentor state bucket only
       {
         Effect = "Allow"
         Action = [
@@ -105,13 +184,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "arn:aws:s3:::deploymentor-terraform-state/*",
         ]
       },
-      {
-        Effect = "Allow"
-        Action = [
-          "sts:AssumeRole",
-        ]
-        Resource = "*"
-      },
+      # DynamoDB state lock — scope to deploymentor locks table only
       {
         Effect = "Allow"
         Action = [

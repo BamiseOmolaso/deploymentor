@@ -596,6 +596,69 @@ Next post: what's next for v2?
 
 ---
 
+## POST 39 — Automating the Manual Setup
+
+I was setting up branch protection rules. Clicking through the GitHub UI. Step by step. Main, staging, prod. Then environments. More clicking. More manual steps. Then I realized — this is all API calls. Why am I clicking?
+
+The problem: setup guides had manual UI steps. Click here, click there, select this, save that. Repetitive. Error-prone. Not reproducible. Every new instance required the same manual work.
+
+The fix: replaced all manual steps with GitHub CLI commands. Branch protection? JSON files and `gh api`. Environments? Same. Reviewers? Same. Everything automated. One script runs it all.
+
+Now setup is:
+```bash
+# Create JSON files
+cat > branch_protection.json << 'EOF'
+{...}
+EOF
+
+# Apply via CLI
+gh api repos/.../branches/main/protection --method PUT --input branch_protection.json
+```
+
+The lesson: if it's in the API, automate it. CLI commands are reproducible. Version controlled. Shareable. Manual steps are not. Automation beats documentation every time.
+
+Next post: what's next for v2?
+
+---
+
+## POST 40 — The DevOps Audit: What I Missed
+
+I ran a full DevOps best practices audit. Read everything. Checked every workflow, every Terraform file, every line of code. The result: 7/10. Good, but not great.
+
+The critical issues: IAM role has wildcard permissions. API Gateway has no authentication. No retry logic for GitHub API calls. No CloudWatch alarms. Lambda timeout might be too short.
+
+The important issues: Hardcoded account IDs. No workflow timeouts. Missing ancestry checks. No structured logging. No reserved concurrency.
+
+The good news: OIDC is set up correctly. State is isolated. Resources are tagged. Tests are comprehensive. Documentation is solid.
+
+The lesson: Building something that works is different from building something that's production-ready. The audit found 30 issues. Five are critical. Fifteen are important. Ten are nice-to-have.
+
+I'm fixing them in priority order. IAM wildcards first. Then API auth. Then retry logic. Then alarms. One at a time. No shortcuts.
+
+Next post: fixing the critical issues.
+
+---
+
+## POST 41 — The Five Critical Fixes Before v2
+
+I fixed all five critical issues from the audit. Here's what changed and why.
+
+**Fix 1: Lambda timeout** — Increased from 30 to 60 seconds. Added a timeout guard that returns 503 if less than 5 seconds remain. Large workflow runs were timing out silently. Now they fail fast with a clear error.
+
+**Fix 2: IAM wildcard permissions** — Replaced `Resource = "*"` with scoped ARNs. Lambda permissions now only apply to `deploymentor-*` functions. IAM permissions only to `deploymentor-*` roles. Logs only to `deploymentor-*` log groups. Removed `sts:AssumeRole` entirely — it wasn't needed. The GitHub Actions role can no longer access resources outside the deploymentor namespace.
+
+**Fix 3: Lambda packaging** — Updated all three deploy workflows to install dependencies into `package/`, zip them first, then add source code. Before: `zip -r lambda_function.zip src/` (source only). After: dependencies included directly in the zip. This is required for v2 when we add the Anthropic SDK. The package is now 17MB instead of a few KB.
+
+**Fix 4: Reserved concurrency** — Added `reserved_concurrent_executions = 10`. No more unlimited concurrency. If 10 requests are running, the 11th waits. This prevents cost spikes from traffic bursts or abuse. When v2 adds LLM calls, this becomes even more important.
+
+**Fix 5: API Gateway authentication** — Added API key validation for `/analyze` endpoint only. `/health` stays public. API key is stored in SSM at `/deploymentor/{env}/api_key`. Lambda validates the `x-api-key` header. Returns 401 if missing, 403 if invalid. Backward compatible: if `API_KEY_SSM_PARAM` isn't set, validation is skipped.
+
+All tests pass. Terraform validates. Code is formatted. Ready to commit.
+
+Next post: deploying these fixes and verifying they work in production.
+
+---
+
 ## Technical Details
 
 **Tech Stack:**

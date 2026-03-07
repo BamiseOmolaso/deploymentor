@@ -6,10 +6,12 @@ This is the entry point for all API Gateway requests.
 
 import json
 import logging
-from typing import Any, Dict
+import os
+from typing import Any, Dict, Optional
 
 from src.analyzers import LogAnalyzer, WorkflowAnalyzer
 from src.github.client import GitHubClient
+from src.utils.ssm import get_parameter
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -26,6 +28,27 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
     Returns:
         API Gateway HTTP API response
     """
+    # Check if we have enough time to process (guard against timeout)
+    if context and hasattr(context, "get_remaining_time_in_millis"):
+        remaining_ms = context.get_remaining_time_in_millis()
+        if remaining_ms < 5000:  # Less than 5 seconds remaining
+            logger.warning(f"Insufficient time remaining: {remaining_ms}ms")
+            return {
+                "statusCode": 503,
+                "headers": {
+                    "Content-Type": "application/json",
+                },
+                "body": json.dumps(
+                    {
+                        "error": "Insufficient time remaining to process request",
+                        "message": (
+                            "Request would exceed Lambda timeout. "
+                            "Try with a smaller workflow run or contact support."
+                        ),
+                    }
+                ),
+            }
+
     # Log sanitized event (avoid logging sensitive headers/data)
     safe = {
         "path": event.get("path"),
@@ -69,6 +92,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return _health_check()
 
     if path == "/analyze" and http_method == "POST":
+        # Validate API key for /analyze endpoint
+        api_key_error = _validate_api_key(event)
+        if api_key_error:
+            return api_key_error
         return _analyze(event)
 
     # Default 404 response
@@ -81,6 +108,71 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
             {"error": "Not Found", "message": f"No handler for {http_method} {path}"}
         ),
     }
+
+
+def _validate_api_key(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
+    """
+    Validate API key from x-api-key header for /analyze endpoint.
+
+    Returns:
+        Error response if validation fails, None if valid
+    """
+    # Get API key from SSM parameter path (if configured)
+    api_key_param = os.getenv("API_KEY_SSM_PARAM")
+    if not api_key_param:
+        # If no API key configured, allow access (backward compatibility)
+        logger.warning("API_KEY_SSM_PARAM not set, skipping API key validation")
+        return None
+
+    # Get expected API key from SSM
+    try:
+        expected_key = get_parameter(api_key_param, decrypt=True)
+        if not expected_key:
+            logger.warning(f"API key not found in SSM at {api_key_param}, allowing request")
+            return None
+    except Exception as e:
+        logger.error(f"Error retrieving API key from SSM: {e}")
+        # Fail open for now to avoid breaking existing deployments
+        return None
+
+    # Extract API key from headers
+    headers = event.get("headers", {}) or {}
+    # Headers can be dict or case-insensitive dict, normalize to lowercase
+    headers_lower = {k.lower(): v for k, v in headers.items()}
+    provided_key = headers_lower.get("x-api-key") or headers_lower.get("x-apikey")
+
+    if not provided_key:
+        return {
+            "statusCode": 401,
+            "headers": {
+                "Content-Type": "application/json",
+            },
+            "body": json.dumps(
+                {
+                    "error": "Unauthorized",
+                    "message": (
+                        "Missing x-api-key header. " "API key is required for /analyze endpoint."
+                    ),
+                }
+            ),
+        }
+
+    if provided_key != expected_key:
+        logger.warning("Invalid API key provided")
+        return {
+            "statusCode": 403,
+            "headers": {
+                "Content-Type": "application/json",
+            },
+            "body": json.dumps(
+                {
+                    "error": "Forbidden",
+                    "message": "Invalid API key.",
+                }
+            ),
+        }
+
+    return None
 
 
 def _health_check() -> Dict[str, Any]:

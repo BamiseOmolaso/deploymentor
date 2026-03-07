@@ -55,6 +55,13 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         or "/"
     )
 
+    # Normalize path: handle double slashes from API Gateway trailing slash
+    # e.g., "//health" -> "/health", "//analyze" -> "/analyze"
+    if path.startswith("//"):
+        path = "/" + path.lstrip("/")
+    elif path != "/":
+        path = "/" + path.strip("/")
+
     logger.info(f"Extracted method: {http_method}, path: {path}")
 
     # Route handling

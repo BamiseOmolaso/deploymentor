@@ -126,3 +126,33 @@ def test_analyze_logs_invalid_json():
     body = json.loads(response["body"])
     assert "error" in body
     assert "JSON" in body["error"]
+
+
+def test_health_with_double_slash():
+    """Test GET //health with double slash (from API Gateway trailing slash)."""
+    event = {"requestContext": {"http": {"method": "GET", "path": "//health"}}}
+
+    response = handler(event, None)
+
+    assert response["statusCode"] == 200
+    body = json.loads(response["body"])
+    assert body["status"] == "healthy"
+    assert body["service"] == "deploymentor"
+
+
+def test_analyze_with_double_slash():
+    """Test POST //analyze with double slash (from API Gateway trailing slash)."""
+    logs_content = "Error: AccessDenied: User is not authorized to perform s3:GetObject"
+    event = {
+        "requestContext": {"http": {"method": "POST", "path": "//analyze"}},
+        "body": json.dumps({"source": "github_actions", "logs": logs_content}),
+    }
+
+    response = handler(event, None)
+
+    assert response["statusCode"] == 200
+    body = json.loads(response["body"])
+    assert "summary" in body
+    assert "probable_cause" in body
+    assert "fix_steps" in body
+    assert "confidence" in body

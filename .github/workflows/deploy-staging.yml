@@ -6,6 +6,10 @@ on:
     tags:
       - 'staging-*'
 
+concurrency:
+  group: deploy-staging
+  cancel-in-progress: false
+
 permissions:
   id-token: write  # Required for OIDC
   contents: read

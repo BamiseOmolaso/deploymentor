@@ -441,6 +441,38 @@ Next post: what's next for v2?
 
 ---
 
+## POST 31 — Fixing Workflow Overlap: The Old deploy.yml Problem
+
+I had two workflows deploying to prod. The old `deploy.yml` triggered on every push to main and deployed to prod automatically. The new `deploy-prod.yml` was supposed to handle prod with approval gates. Both were running. Both deploying to prod. Both conflicting.
+
+The old workflow used the old Terraform structure (`terraform/` not `terraform/environments/prod/`). It deployed to prod automatically on every push to main. That violated the one-direction flow. Main should only deploy to dev, not prod.
+
+I disabled the old workflow. Renamed it to `deploy.yml.bak` with a comment explaining it was replaced. Now only one workflow deploys to each environment. Dev auto-deploys on main. Staging deploys on staging branch push. Prod deploys on prod branch push with approval.
+
+The lesson: when refactoring workflows, disable the old ones first. Don't let them overlap. One workflow per environment. One trigger per workflow. Clear ownership.
+
+Next post: why one-direction code flow matters.
+
+---
+
+## POST 32 — One-Direction Code Flow: Why Ancestry Checks Matter
+
+I added ancestry checks to staging and prod workflows. Before deploying, the workflow verifies the commit exists in the previous environment's history. Staging checks main. Prod checks staging.
+
+The check uses `git merge-base --is-ancestor`. If the commit hasn't passed through the previous environment, the deployment fails. No shortcuts. No direct pushes. No skipping environments.
+
+Why this matters: even with branch protection, you could merge staging into prod without going through main. Or merge a feature branch directly into prod. The ancestry check prevents that. It enforces the flow: main → staging → prod.
+
+The check is simple. It's fast. It's reliable. It catches mistakes before they reach production. It's infrastructure as code for deployment flow.
+
+Even for solo projects, it's worth it. It prevents "oops, I merged the wrong branch" moments. It creates an audit trail. It enforces discipline.
+
+The setup: staging workflow checks if commit exists in main. Prod workflow checks if commit exists in staging. Both fail fast if the check doesn't pass. No deployment, no confusion, no shortcuts.
+
+Next post: what's next for v2?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**
@@ -464,9 +496,10 @@ Next post: what's next for v2?
 **Stats:**
 - 51+ commits documenting the journey
 - 54+ tests passing
-- 30 distinct issues encountered and resolved
+- 32 distinct issues encountered and resolved
 - Real workflows being analyzed in production
 - CI/CD workflow gating implemented
 - Terraform backend modernized (use_lockfile)
 - Path normalization for API Gateway trailing slash
 - Three-environment lifecycle (dev/staging/prod) with manual approval gate
+- One-direction code flow enforced (main → staging → prod) with ancestry checks

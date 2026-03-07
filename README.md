@@ -29,6 +29,8 @@ GitHub Actions → API Gateway HTTP API → AWS Lambda → AI Analysis → Respo
 - **[🚀 Quick Start Guide](QUICKSTART.md)** - Deploy in under 10 minutes (recommended for first-time users)
 - **[API Usage Guide](docs/API_USAGE.md)** - How to use the DeployMentor API
 - **[Deployment Guide](docs/DEPLOYMENT.md)** - Deploy infrastructure to AWS
+- **[Code Promotion Guide](docs/PROMOTION_GUIDE.md)** - How to promote code through dev → staging → prod
+- **[Branch Protection Setup](docs/BRANCH_PROTECTION_SETUP.md)** - Configure GitHub branch protection rules
 - **[GitHub OIDC Setup](docs/GITHUB_OIDC_SETUP.md)** - Configure secure CI/CD with OIDC
 - **[Security Practices](docs/SECURITY.md)** - Security best practices
 - **[Troubleshooting Guide](docs/TROUBLESHOOTING.md)** - Common errors and solutions

@@ -695,54 +695,89 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
 ### Deploy Dev Workflow (`.github/workflows/deploy-dev.yml`)
 
 **Trigger**: 
-- Push to `main` branch
-- Manual (`workflow_dispatch`)
+- `workflow_run` - Triggers when CI workflow completes on `main` branch
+- Only runs if CI workflow conclusion is `success`
 
 **Environment**: `development` (GitHub environment)
 
-**Steps**:
-1. Checkout code
-2. Configure AWS credentials (OIDC)
-3. Package Lambda function
-4. Terraform init/plan/apply (dev environment)
-5. Smoke test (verifies `/health` and `/analyze` endpoints)
+**Flow**:
+1. CI workflow runs on push to `main`
+2. If CI passes, Deploy Dev workflow runs automatically
+3. Deploys to dev environment
+4. Runs smoke tests
 
-**No approval required** - deploys automatically.
+**No approval required** - deploys automatically after CI passes.
+
+**Important**: This workflow only triggers on `main` branch. Code must be in `main` before it can reach dev.
 
 ### Deploy Staging Workflow (`.github/workflows/deploy-staging.yml`)
 
 **Trigger**:
+- Push to `staging` branch
 - Manual (`workflow_dispatch`)
-- Git tag `staging-*` (e.g., `staging-v1.0.0`)
 
 **Environment**: `staging` (GitHub environment)
 
-**Steps**: Same as dev workflow, but targets staging environment.
+**Jobs** (run in sequence):
+
+1. **verify-ancestry**: 
+   - Verifies the commit exists in `main` branch history
+   - Uses `git merge-base --is-ancestor` to check ancestry
+   - Fails if commit hasn't passed through main
+   - Enforces one-direction flow: main → staging
+
+2. **deploy**:
+   - Deploys to staging environment
+   - Runs smoke tests after deployment
+
+**Ancestry Check**:
+The workflow ensures code has been in `main` before reaching staging. If you try to push code directly to staging that hasn't been in main, the deployment fails with:
+```
+❌ This commit has not passed through main. Aborting.
+   Code must flow: main → staging → prod
+```
+
+**No approval required** - but code must have passed through main first.
 
 ### Deploy Prod Workflow (`.github/workflows/deploy-prod.yml`)
 
 **Trigger**:
+- Push to `prod` branch
 - Manual (`workflow_dispatch`)
 - Git tag `v*` (e.g., `v1.0.0`)
-- **Never triggers on push** - only manual or version tags
 
 **Environment**: `production` (GitHub environment with approval gate)
 
 **Jobs** (run in sequence):
 
-1. **verify-staging**: 
+1. **verify-ancestry**: 
+   - Verifies the commit exists in `staging` branch history
+   - Uses `git merge-base --is-ancestor` to check ancestry
+   - Fails if commit hasn't passed through staging
+   - Enforces one-direction flow: main → staging → prod
+
+2. **verify-staging**: 
    - Runs smoke tests against staging environment
    - Ensures staging is healthy before deploying to prod
+   - Depends on verify-ancestry passing
 
-2. **deploy** (with approval gate):
+3. **deploy** (with approval gate):
+   - Depends on both verify-ancestry and verify-staging passing
    - Pauses for manual approval (GitHub environment protection)
    - Requires explicit approval from configured reviewers
    - Deploys to production after approval
    - Gets API URL and stores it for next job
 
-3. **verify-prod**:
+4. **verify-prod**:
    - Runs smoke tests against production
    - Fails if tests don't pass (triggers rollback consideration)
+
+**Ancestry Check**:
+The workflow ensures code has been in `staging` before reaching prod. If you try to push code directly to prod that hasn't been in staging, the deployment fails with:
+```
+❌ This commit has not passed through staging. Aborting.
+   Code must flow: main → staging → prod
+```
 
 **Manual Approval Gate**:
 ```yaml
@@ -758,6 +793,12 @@ This block creates a manual approval step. The workflow pauses at the "Deploy to
 - Allows review of changes before production
 - Provides audit trail of who approved what
 - Even for solo projects, it enforces a "pause and think" moment
+
+**Enforced Flow**:
+- Code must be in `main` (dev auto-deploys)
+- Code must be in `staging` (staging deploys with ancestry check)
+- Code must be in `prod` (prod deploys with ancestry check + approval)
+- No shortcuts, no direct pushes, no skipping environments
 
 ### Workflow Gating Benefits
 

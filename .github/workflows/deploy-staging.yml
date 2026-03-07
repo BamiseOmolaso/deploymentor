@@ -54,8 +54,18 @@ jobs:
 
       - name: Import existing resources (if any)
         working-directory: terraform/environments/staging
-        continue-on-error: true
-        run: ../../../scripts/terraform-import-existing.sh staging
+        run: |
+          LAMBDA_EXISTS=$(aws lambda get-function \
+            --function-name deploymentor-staging \
+            --query 'Configuration.FunctionName' \
+            --output text 2>/dev/null || echo "NOT_FOUND")
+
+          if [ "$LAMBDA_EXISTS" = "NOT_FOUND" ]; then
+            echo "ℹ️ No existing staging resources found — Terraform will create them fresh"
+          else
+            echo "✅ Existing staging resources found — running import script"
+            ../../../scripts/terraform-import-existing.sh staging
+          fi
 
       - name: Terraform Plan
         working-directory: terraform/environments/staging

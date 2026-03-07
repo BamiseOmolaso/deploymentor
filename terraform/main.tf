@@ -11,11 +11,11 @@ terraform {
   # Remote state backend (configure after running terraform/bootstrap)
   # See terraform/bootstrap/README.md for setup instructions
   backend "s3" {
-    bucket         = "deploymentor-terraform-state"
-    key            = "deploymentor/terraform.tfstate"
-    region         = "us-east-1"
-    use_lockfile   = true
-    encrypt        = true
+    bucket       = "deploymentor-terraform-state"
+    key          = "deploymentor/terraform.tfstate"
+    region       = "us-east-1"
+    use_lockfile = true
+    encrypt      = true
   }
 }
 

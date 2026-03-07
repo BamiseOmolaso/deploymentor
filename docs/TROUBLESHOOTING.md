@@ -307,6 +307,41 @@ An update is in progress for resource: ...
 
 ---
 
+### Error 17: Lambda Zip File Not Found (Relative Path Issue)
+
+**Error Message:**
+```
+Error: Error in function call
+
+Call to function "filebase64sha256" failed: open ../../../lambda_function.zip: no such file or directory.
+```
+
+**Root Cause:**
+- Lambda module uses relative path to find `lambda_function.zip`
+- When Terraform runs from `terraform/environments/dev/`, `path.root` points to the environment directory
+- Original path `${path.root}/../lambda_function.zip` only goes up one level (to `terraform/environments/`)
+- Zip file is actually at repo root, requiring three levels up: `../../../`
+
+**Solution:**
+1. Updated `terraform/modules/lambda/main.tf`:
+   ```hcl
+   locals {
+     # Zip is created at repo root, but we're running from terraform/environments/{env}/
+     # path.root points to the environment directory, so go up 3 levels to repo root
+     lambda_zip_path = "${path.root}/../../../lambda_function.zip"
+   }
+   ```
+2. Tested locally for all environments (dev, staging, prod) to ensure path resolves correctly
+
+**Prevention:**
+- Always test relative paths after restructuring directories
+- Understand what `path.root` points to in your context
+- Test terraform plan locally from the same directory structure used in CI/CD
+- Use absolute paths or environment-specific variables if relative paths become complex
+- Document path assumptions in code comments
+
+---
+
 ## API Gateway Errors
 
 ### Error 9: API Gateway ID Lookup Returning Multiple IDs
@@ -647,6 +682,6 @@ aws apigatewayv2 get-integrations --api-id <API_ID>
 ---
 
 **Last Updated**: March 7, 2026  
-**Total Errors Documented**: 16  
+**Total Errors Documented**: 17  
 **Status**: All errors resolved ✅
 

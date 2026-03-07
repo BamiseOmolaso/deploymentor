@@ -532,6 +532,22 @@ Next post: what's next for v2?
 
 ---
 
+## POST 36 — Relative Paths Break When You Move Directories
+
+Terraform plan was failing. Couldn't find `lambda_function.zip`. The error: "no such file or directory". But the zip exists. I checked. It's at the repo root. So why can't Terraform find it?
+
+The problem: relative paths. The module used `${path.root}/../lambda_function.zip`. That worked when Terraform ran from `terraform/`. But we moved to `terraform/environments/dev/`. Now `path.root` points to the environment directory. Going up one level (`../`) lands in `terraform/environments/`, not the repo root.
+
+The fix: go up three levels. `${path.root}/../../../lambda_function.zip`. From `terraform/environments/dev/`, that's: up to `environments/`, up to `terraform/`, up to repo root. There's the zip.
+
+I tested it locally for all three environments. Dev, staging, prod. All work. The path resolves correctly. Terraform plan completes without errors.
+
+The lesson: when you restructure directories, check every relative path. Especially in modules. Especially when `path.root` changes. Test locally before pushing. One character difference (`../` vs `../../../`) breaks everything.
+
+Next post: what's next for v2?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**

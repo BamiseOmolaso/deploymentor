@@ -16,7 +16,7 @@ resource "aws_lambda_function" "this" {
   runtime          = var.runtime
   timeout          = var.timeout
   memory_size      = var.memory_size
-  source_code_hash = filebase64sha256(local.lambda_zip_path)
+  source_code_hash = fileexists(local.lambda_zip_path) ? filebase64sha256(local.lambda_zip_path) : null
   layers           = var.layers # Lambda Layers for dependencies
 
   environment {

@@ -366,8 +366,7 @@ class WorkflowAnalyzer:
                                 break
                         # Or check for error_type specific keywords
                         elif error_keywords and any(
-                            keyword.lower() in line.lower()
-                            for keyword in error_keywords
+                            keyword.lower() in line.lower() for keyword in error_keywords
                         ):
                             if step_name.lower() in log_content.lower():
                                 error_message = line.strip()

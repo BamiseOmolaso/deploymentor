@@ -8,7 +8,8 @@ import json
 import logging
 from typing import Any, Dict
 
-from src.analyzers import LogAnalyzer
+from src.analyzers import LogAnalyzer, WorkflowAnalyzer
+from src.github.client import GitHubClient
 
 logger = logging.getLogger()
 logger.setLevel(logging.INFO)
@@ -61,7 +62,7 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         return _health_check()
 
     if path == "/analyze" and http_method == "POST":
-        return _analyze_logs(event)
+        return _analyze(event)
 
     # Default 404 response
     return {
@@ -86,15 +87,13 @@ def _health_check() -> Dict[str, Any]:
     }
 
 
-def _analyze_logs(event: Dict[str, Any]) -> Dict[str, Any]:
+def _analyze(event: Dict[str, Any]) -> Dict[str, Any]:
     """
-    Analyze CI/CD logs and return root cause analysis.
+    Analyze CI/CD failures - supports both GitHub run_id and direct logs.
 
-    Expected request body:
-    {
-        "source": "github_actions",
-        "logs": "<string logs here>"
-    }
+    Request body formats:
+    1. GitHub run_id: {"owner": "...", "repo": "...", "run_id": 123}
+    2. Direct logs: {"source": "github_actions", "logs": "<string>"}
     """
     try:
         # Parse request body
@@ -104,6 +103,90 @@ def _analyze_logs(event: Dict[str, Any]) -> Dict[str, Any]:
         elif body is None:
             body = {}
 
+        # Detect request format - run_id flow takes priority
+        if all(k in body for k in ("owner", "repo", "run_id")):
+            return _analyze_workflow(body["owner"], body["repo"], body["run_id"])
+
+        # Fall back to direct log analysis
+        return _analyze_logs(body)
+
+    except json.JSONDecodeError:
+        return _error_response(400, "Invalid JSON in request body")
+    except Exception as e:
+        logger.error(f"Unexpected error: {e}", exc_info=True)
+        return _error_response(500, f"Internal server error: {str(e)}")
+
+
+def _analyze_workflow(owner: str, repo: str, run_id: Any) -> Dict[str, Any]:
+    """
+    Analyze a GitHub Actions workflow run using GitHub API.
+
+    Args:
+        owner: Repository owner (username or org)
+        repo: Repository name
+        run_id: Workflow run ID (will be converted to int)
+
+    Returns:
+        API Gateway response with analysis
+    """
+    try:
+        # Validate run_id is an integer
+        try:
+            run_id = int(run_id)
+        except (ValueError, TypeError):
+            return _error_response(400, "run_id must be an integer")
+
+        logger.info(f"Analyzing workflow: {owner}/{repo} run_id={run_id}")
+
+        # Initialize GitHub client and analyzer
+        github_client = GitHubClient()
+        analyzer = WorkflowAnalyzer()
+
+        # Fetch workflow data
+        try:
+            workflow_run = github_client.get_workflow_run(owner, repo, run_id)
+            jobs = github_client.get_workflow_run_jobs(owner, repo, run_id)
+        except Exception as e:
+            logger.error(f"Error fetching workflow data: {e}")
+            error_msg = str(e)
+            if "404" in error_msg or "Not Found" in error_msg:
+                return _error_response(
+                    404, f"Workflow run not found: {owner}/{repo} run_id={run_id}"
+                )
+            return _error_response(500, f"Error fetching workflow data: {error_msg}")
+
+        # Analyze workflow
+        try:
+            analysis = analyzer.analyze(workflow_run, jobs)
+        except Exception as e:
+            logger.error(f"Error analyzing workflow: {e}")
+            return _error_response(500, f"Error analyzing workflow: {str(e)}")
+
+        # Return analysis result
+        return {
+            "statusCode": 200,
+            "headers": {
+                "Content-Type": "application/json",
+            },
+            "body": json.dumps(analysis),
+        }
+
+    except Exception as e:
+        logger.error(f"Unexpected error in workflow analysis: {e}", exc_info=True)
+        return _error_response(500, f"Internal server error: {str(e)}")
+
+
+def _analyze_logs(body: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Analyze CI/CD logs directly and return root cause analysis.
+
+    Expected request body:
+    {
+        "source": "github_actions",
+        "logs": "<string logs here>"
+    }
+    """
+    try:
         # Validate required fields
         source = body.get("source", "github_actions")
         logs = body.get("logs")
@@ -135,10 +218,8 @@ def _analyze_logs(event: Dict[str, Any]) -> Dict[str, Any]:
             "body": json.dumps(analysis),
         }
 
-    except json.JSONDecodeError:
-        return _error_response(400, "Invalid JSON in request body")
     except Exception as e:
-        logger.error(f"Unexpected error: {e}", exc_info=True)
+        logger.error(f"Unexpected error in log analysis: {e}", exc_info=True)
         return _error_response(500, f"Internal server error: {str(e)}")
 
 

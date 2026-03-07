@@ -514,6 +514,24 @@ Next post: what's next for v2?
 
 ---
 
+## POST 35 — Missing Environment Variables: Terraform Plan Hanging in CI
+
+Terraform plan was hanging in CI. No error message. Just waiting. The workflow timed out after 60 minutes. I checked the logs. Nothing. Just silence.
+
+The problem: terraform plan was prompting for `var.environment` interactively. CI can't answer prompts. So it hung. Forever. Waiting for input that would never come.
+
+The fix: add `-var="environment=dev"` to every terraform plan and apply command. All three workflows. Dev, staging, prod. Every single terraform command needs the environment variable explicitly passed.
+
+I also added path filtering to CI. Now CI only runs when code, tests, terraform, or scripts change. Not on docs. Not on markdown. Saves CI minutes. Prevents unnecessary runs.
+
+And I changed deploy-dev to use workflow_run. It only triggers after CI succeeds. No more direct push triggers. Cleaner flow. CI runs. If it passes, deploy runs. If it fails, nothing deploys.
+
+The lesson: always pass required variables explicitly in CI/CD. Never rely on prompts. Never assume defaults. Be explicit. Every command. Every time.
+
+Next post: what's next for v2?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**

@@ -643,8 +643,16 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
 ### CI Workflow (`.github/workflows/ci.yml`)
 
 **Trigger**: 
-- Push to `main` or `develop` branches
-- Pull requests to `main` or `develop`
+- Push to `main`, `staging`, or `prod` branches
+- Pull requests to `main`, `staging`, or `prod`
+- **Path filtering**: Only runs on changes to:
+  - `src/**` - Source code changes
+  - `tests/**` - Test file changes
+  - `terraform/**` - Infrastructure changes
+  - `scripts/**` - Script changes
+  - `requirements*.txt` - Dependency changes
+  - `.github/workflows/**` - Workflow changes
+- **Does NOT run on**: `docs/**`, `*.md`, or other non-code changes
 
 **Jobs**:
 
@@ -714,8 +722,15 @@ The file is kept for reference only. Do not re-enable.
 ### Deploy Dev Workflow (`.github/workflows/deploy-dev.yml`)
 
 **Trigger**: 
-- Push to `main` branch
-- Manual (`workflow_dispatch`)
+- `workflow_run` - Triggers when CI workflow completes on `main` branch
+- Only runs if CI workflow conclusion is `success`
+- Manual (`workflow_dispatch`) - Can be triggered manually for testing
+
+**Conditional Execution**:
+```yaml
+if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+```
+This ensures deploy-dev only runs after CI passes, or when manually triggered.
 
 **Concurrency Control**:
 ```yaml
@@ -728,11 +743,15 @@ This ensures only one deploy-dev workflow runs at a time. If multiple pushes hap
 **Environment**: `development` (GitHub environment)
 
 **Flow**:
-1. Push to `main` triggers the workflow
-2. Deploys to dev environment
-3. Runs smoke tests after deployment
+1. CI workflow runs on push to `main` (if paths match)
+2. If CI passes, Deploy Dev workflow runs automatically
+3. Terraform plan/apply uses `-var="environment=dev"` to prevent interactive prompts
+4. Deploys to dev environment
+5. Runs smoke tests after deployment
 
-**No approval required** - deploys automatically on push to main.
+**No approval required** - deploys automatically after CI passes.
+
+**Terraform Variables**: All terraform commands explicitly pass `-var="environment=dev"` to prevent CI from hanging on interactive prompts.
 
 **State Lock Protection**: The concurrency control prevents simultaneous runs from fighting over the same Terraform state lock, eliminating 412 PreconditionFailed errors.
 

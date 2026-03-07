@@ -275,6 +275,38 @@ An update is in progress for resource: ...
 
 ---
 
+### Error 16: Terraform Plan/Apply Hanging in CI (Missing Environment Variable)
+
+**Error Message:**
+- Terraform plan or apply commands hang indefinitely in CI
+- No error message, workflow times out after 60 minutes
+- Logs show no activity after terraform init
+
+**Root Cause:**
+- Terraform plan/apply commands were missing `-var="environment=..."` flag
+- Terraform tried to prompt for `var.environment` interactively
+- CI cannot answer interactive prompts, causing the workflow to hang
+
+**Solution:**
+1. Added `-var="environment=dev"` to all terraform plan/apply commands in `deploy-dev.yml`:
+   ```yaml
+   - name: Terraform Plan
+     run: terraform plan -var="environment=dev" -out=tfplan
+   
+   - name: Terraform Apply
+     run: terraform apply -var="environment=dev" -auto-approve tfplan
+   ```
+2. Applied same fix to `deploy-staging.yml` and `deploy-prod.yml` with respective environment values
+3. All terraform commands now explicitly pass the environment variable
+
+**Prevention:**
+- Always pass required variables explicitly in CI/CD workflows
+- Never rely on terraform.tfvars files or interactive prompts
+- Test terraform commands locally with the same flags used in CI
+- Use `terraform plan -var="environment=dev"` locally to verify it works
+
+---
+
 ## API Gateway Errors
 
 ### Error 9: API Gateway ID Lookup Returning Multiple IDs
@@ -615,6 +647,6 @@ aws apigatewayv2 get-integrations --api-id <API_ID>
 ---
 
 **Last Updated**: March 7, 2026  
-**Total Errors Documented**: 15  
+**Total Errors Documented**: 16  
 **Status**: All errors resolved ✅
 

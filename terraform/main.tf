@@ -14,7 +14,7 @@ terraform {
     bucket         = "deploymentor-terraform-state"
     key            = "deploymentor/terraform.tfstate"
     region         = "us-east-1"
-    dynamodb_table = "deploymentor-terraform-locks"
+    use_lockfile   = true
     encrypt        = true
   }
 }

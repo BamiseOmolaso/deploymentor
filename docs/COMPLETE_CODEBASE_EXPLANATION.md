@@ -792,11 +792,14 @@ This ensures only one deploy-dev workflow runs at a time. If multiple pushes hap
    - Enforces one-direction flow: main → staging
 
 2. **deploy**:
+   - **Lock cleanup**: Checks for stale Terraform state lock in S3 and clears it if found
    - **Conditional import**: Checks if `deploymentor-staging` Lambda exists in AWS
      - If NOT_FOUND: skips import, Terraform creates resources fresh
      - If exists: runs import script to sync existing resources into state
    - Deploys to staging environment
    - Runs smoke tests after deployment
+
+**Lock Cleanup**: Prevents state lock errors from local terraform runs. Automatically clears stale locks before every Terraform operation.
 
 **Conditional Import Logic**: Same as dev workflow - checks if resources exist before importing. Handles both fresh and existing deployments.
 
@@ -835,9 +838,12 @@ The workflow ensures code has been in `main` before reaching staging. If you try
    - Depends on both verify-ancestry and verify-staging passing
    - Pauses for manual approval (GitHub environment protection)
    - Requires explicit approval from configured reviewers
+   - **Lock cleanup**: Checks for stale Terraform state lock in S3 and clears it if found
    - **Unconditional import**: Always runs import script (prod resources were pre-created manually)
    - Deploys to production after approval
    - Gets API URL and stores it for next job
+
+**Lock Cleanup**: Same as dev and staging - automatically clears stale locks before Terraform operations. Prevents state lock errors from local terraform runs.
 
 **Import Strategy**: Prod workflow always runs the import script because prod resources were manually created before Terraform managed them. Dev and staging use conditional imports to handle both fresh and existing deployments.
 

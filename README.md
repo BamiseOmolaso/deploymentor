@@ -79,6 +79,33 @@ deploymentor/
 
 ---
 
+## 🔄 Code Flow
+
+DeployMentor enforces a strict one-direction code flow:
+
+```
+main → staging → prod
+```
+
+**Dev (Automatic)**:
+- Push to `main` → CI passes → Dev auto-deploys
+
+**Staging (Manual Merge)**:
+- Merge `main` into `staging` → Push to `staging` → Staging deploys (with ancestry check)
+
+**Prod (Manual Merge + Approval)**:
+- Merge `staging` into `prod` → Push to `prod` → Prod workflow runs → Manual approval required → Prod deploys (with ancestry check)
+
+**Enforcement**:
+- ✅ Ancestry checks verify commits passed through previous environments
+- ✅ Branch protection prevents direct pushes (see [Branch Protection Setup](docs/BRANCH_PROTECTION_SETUP.md))
+- ✅ Manual approval gate on prod deployments
+- ❌ No shortcuts, no skipping environments, no direct pushes
+
+See [Code Promotion Guide](docs/PROMOTION_GUIDE.md) for detailed instructions.
+
+---
+
 ## 🚀 Deploy Your Own Copy
 
 Follow these simple steps to deploy DeployMentor to your own AWS account. This guide assumes you're new to AWS, Terraform, and Python.

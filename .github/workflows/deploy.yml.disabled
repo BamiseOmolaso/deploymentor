@@ -1,3 +1,10 @@
+# DISABLED - replaced by deploy-dev.yml, deploy-staging.yml, deploy-prod.yml
+# Kept for reference only. Do not re-enable.
+# This workflow was causing state lock conflicts with deploy-dev.yml
+# Both were triggering on push to main and trying to acquire the same Terraform state lock.
+# The old workflow used terraform/ (prod) while deploy-dev.yml uses terraform/environments/dev/
+# but both were running simultaneously, causing 412 PreconditionFailed errors.
+
 name: Deploy
 
 on:

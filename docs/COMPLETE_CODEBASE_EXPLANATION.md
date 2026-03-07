@@ -625,10 +625,12 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
    - Security scans
    - Terraform validation
 
-2. **Deploy Dev Workflow** (`.github/workflows/deploy-dev.yml`): Auto-deploys to dev
-   - Triggers on every push to `main`
+2. **Deploy Dev Workflow** (`.github/workflows/deploy-dev.yml`): Auto-deploys to dev after CI passes
+   - Triggers on `workflow_run` when CI completes successfully on `main`
+   - Only runs if CI workflow conclusion is `success`
    - Deploys to dev environment
    - Runs smoke tests after deployment
+   - Uses `-var="environment=dev"` in all terraform commands
 
 3. **Deploy Staging Workflow** (`.github/workflows/deploy-staging.yml`): Manual or tag-based staging deployment
    - Triggers on `workflow_dispatch` or git tag `staging-*`

@@ -58,13 +58,24 @@ USER_ID=$(gh api users/BamiseOmolaso --jq '.id')
 echo "User ID: $USER_ID"
 ```
 
-Then add yourself (or other users) as required reviewers:
+Then create a JSON file and add yourself (or other users) as required reviewers:
 
 ```bash
+cat > /tmp/prod_env.json << EOF
+{
+  "wait_timer": 0,
+  "reviewers": [
+    {
+      "type": "User",
+      "id": $USER_ID
+    }
+  ]
+}
+EOF
+
 gh api repos/BamiseOmolaso/deploymentor/environments/production \
   --method PUT \
-  --field wait_timer=0 \
-  --field reviewers="[{\"type\":\"User\",\"id\":$USER_ID}]"
+  --input /tmp/prod_env.json
 ```
 
 **To add multiple reviewers**, get their user IDs and include them in the array:

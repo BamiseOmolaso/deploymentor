@@ -489,6 +489,31 @@ Next post: what's next for v2?
 
 ---
 
+## POST 34 — Concurrency Controls: Preventing Simultaneous Deploy State Lock Conflicts
+
+The deploy-dev workflow kept failing with state lock conflicts. Every run. 412 PreconditionFailed. The lock file was stuck in S3. But why was it stuck?
+
+I found the root cause: multiple workflow runs were triggering simultaneously. Push to main. CI runs. Deploy Dev runs. But if you push again quickly, another Deploy Dev starts. Both try to acquire the same Terraform state lock. Both fail.
+
+The fix: concurrency controls. Added to all three deploy workflows:
+```yaml
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+```
+
+This ensures only one deploy runs at a time per environment. If a second push happens while the first deploy is running, the second waits. No simultaneous runs. No lock conflicts.
+
+The `cancel-in-progress: false` means the second run waits instead of being cancelled. This is safer for deployments. You want the latest code to deploy, but only after the current deploy finishes.
+
+I also cleared the stuck lock file from S3 and force-unlocked the state. Then tested everything locally before pushing. The workflow now runs cleanly without lock conflicts.
+
+The lesson: always add concurrency controls to deployment workflows. Especially when they modify shared state. Terraform state locks are there for a reason. Respect them.
+
+Next post: what's next for v2?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**

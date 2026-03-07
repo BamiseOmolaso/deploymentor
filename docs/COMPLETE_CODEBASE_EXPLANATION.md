@@ -714,20 +714,27 @@ The file is kept for reference only. Do not re-enable.
 ### Deploy Dev Workflow (`.github/workflows/deploy-dev.yml`)
 
 **Trigger**: 
-- `workflow_run` - Triggers when CI workflow completes on `main` branch
-- Only runs if CI workflow conclusion is `success`
+- Push to `main` branch
+- Manual (`workflow_dispatch`)
+
+**Concurrency Control**:
+```yaml
+concurrency:
+  group: deploy-dev
+  cancel-in-progress: false
+```
+This ensures only one deploy-dev workflow runs at a time. If multiple pushes happen quickly, subsequent runs wait for the current one to finish. Prevents Terraform state lock conflicts.
 
 **Environment**: `development` (GitHub environment)
 
 **Flow**:
-1. CI workflow runs on push to `main`
-2. If CI passes, Deploy Dev workflow runs automatically
-3. Deploys to dev environment
-4. Runs smoke tests
+1. Push to `main` triggers the workflow
+2. Deploys to dev environment
+3. Runs smoke tests after deployment
 
-**No approval required** - deploys automatically after CI passes.
+**No approval required** - deploys automatically on push to main.
 
-**Important**: This workflow only triggers on `main` branch. Code must be in `main` before it can reach dev.
+**State Lock Protection**: The concurrency control prevents simultaneous runs from fighting over the same Terraform state lock, eliminating 412 PreconditionFailed errors.
 
 ### Deploy Staging Workflow (`.github/workflows/deploy-staging.yml`)
 

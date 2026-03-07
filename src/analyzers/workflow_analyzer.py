@@ -269,7 +269,9 @@ class WorkflowAnalyzer:
             "has_step_details": len(steps) > 0,
         }
 
-    def _analyze_step(self, step: Dict[str, Any], logs: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
+    def _analyze_step(
+        self, step: Dict[str, Any], logs: Optional[Dict[str, str]] = None
+    ) -> Dict[str, Any]:
         """
         Analyze a single failed step.
 

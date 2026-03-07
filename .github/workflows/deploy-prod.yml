@@ -79,11 +79,11 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform/environments/prod
-        run: terraform plan -out=tfplan
+        run: terraform plan -var="environment=prod" -out=tfplan
 
       - name: Terraform Apply
         working-directory: terraform/environments/prod
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -var="environment=prod" -auto-approve tfplan
 
       - name: Get API URL
         id: get-url

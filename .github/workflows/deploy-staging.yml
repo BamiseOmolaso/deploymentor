@@ -59,11 +59,11 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform/environments/staging
-        run: terraform plan -out=tfplan
+        run: terraform plan -var="environment=staging" -out=tfplan
 
       - name: Terraform Apply
         working-directory: terraform/environments/staging
-        run: terraform apply -auto-approve tfplan
+        run: terraform apply -var="environment=staging" -auto-approve tfplan
 
       - name: Get API URL
         id: get-url

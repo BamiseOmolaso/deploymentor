@@ -1354,6 +1354,41 @@ curl -X POST https://xxx.execute-api.us-east-1.amazonaws.com/analyze \
 
 ---
 
+## Setup and Configuration
+
+### Branch Protection Rules
+
+Branch protection rules enforce one-direction code flow (main → staging → prod) and prevent direct pushes. They are set up using the GitHub CLI:
+
+**Setup Method**: Automated via GitHub CLI (`gh api`)
+
+**Required Rules**:
+- **main**: Requires CI to pass, 1 approval, admin enforcement
+- **staging**: Requires CI + Deploy Dev to pass, 1 approval, admin enforcement
+- **prod**: Requires CI + Deploy Staging to pass, 1 approval, admin enforcement
+
+**Documentation**: See [Branch Protection Setup Guide](BRANCH_PROTECTION_SETUP.md) for complete CLI commands.
+
+### GitHub Environments
+
+GitHub Environments provide OIDC authentication and manual approval gates. They are set up using the GitHub CLI:
+
+**Environments**:
+- **development**: Auto-deploys, no approval required
+- **staging**: Auto-deploys, no approval required
+- **production**: Requires manual approval from configured reviewers
+
+**Setup Method**: Automated via GitHub CLI (`gh api`)
+
+**Documentation**: See [GitHub Environment Setup Guide](GITHUB_ENVIRONMENT_SETUP.md) for complete CLI commands.
+
+**Note**: After creating environments, you must add the `AWS_ROLE_ARN` secret to each environment using:
+```bash
+gh secret set AWS_ROLE_ARN --env <environment> --body <role_arn>
+```
+
+---
+
 ## Conclusion
 
 DeployMentor is a complete serverless application that demonstrates:
@@ -1363,14 +1398,18 @@ DeployMentor is a complete serverless application that demonstrates:
 - **Infrastructure as Code**: Everything defined in Terraform
 - **CI/CD automation**: Automated deployments via GitHub Actions
 - **Cost optimization**: ~$1.70/month, potentially $0 with free tier
+- **Automation**: Setup is fully automated via CLI (no manual UI steps)
 
 The codebase is designed to be:
 - **Maintainable**: Clear structure, well-documented
 - **Testable**: Comprehensive test coverage
 - **Extensible**: Easy to add new features
 - **Production-ready**: Security, monitoring, error handling
+- **Reproducible**: All setup steps are automated and version controlled
 
 For deployment instructions, see [QUICKSTART.md](../QUICKSTART.md).  
 For API usage, see [docs/API_USAGE.md](API_USAGE.md).  
-For troubleshooting, see [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md).
+For troubleshooting, see [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md).  
+For branch protection setup, see [docs/BRANCH_PROTECTION_SETUP.md](BRANCH_PROTECTION_SETUP.md).  
+For environment setup, see [docs/GITHUB_ENVIRONMENT_SETUP.md](GITHUB_ENVIRONMENT_SETUP.md).
 

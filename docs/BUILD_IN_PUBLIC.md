@@ -1,5 +1,5 @@
 # Deploymentor: Build in Public Post Series
-# Total posts: 25
+# Total posts: 26
 # Platform: X / LinkedIn
 # Project: https://github.com/BamiseOmolaso/deploymentor
 
@@ -359,6 +359,20 @@ If you want to follow along, the repo is public. I'm documenting every decision,
 
 ---
 
+## POST 26 — Gating Deploy on CI Success: Preventing Bad Deployments
+
+I just fixed a formatting issue. Black formatting check failed in CI. I fixed it locally, but the deploy workflow still ran. It deployed code that would have failed the formatting check.
+
+That's a problem. If CI fails, deploy shouldn't run. But my deploy workflow triggered on push, independent of CI. Two workflows running in parallel. CI could fail while deploy succeeded.
+
+The fix: changed deploy trigger from `push` to `workflow_run`. Now deploy only runs after CI completes. Added a condition: `if: ${{ github.event.workflow_run.conclusion == 'success' }}`. If CI fails, deploy is skipped entirely.
+
+This is infrastructure 101, but I missed it. Deploy should always gate on CI. No exceptions. Tests must pass. Linting must pass. Security scans must pass. Only then deploy.
+
+Next post: what else did I miss?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**
@@ -382,5 +396,6 @@ If you want to follow along, the repo is public. I'm documenting every decision,
 **Stats:**
 - 51+ commits documenting the journey
 - 52+ tests passing
-- 25 distinct issues encountered and resolved
+- 26 distinct issues encountered and resolved
 - Real workflows being analyzed in production
+- CI/CD workflow gating implemented

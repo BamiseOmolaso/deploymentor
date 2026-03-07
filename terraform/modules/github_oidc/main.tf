@@ -97,6 +97,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         Action = [
           "s3:GetObject",
           "s3:PutObject",
+          "s3:DeleteObject",  # required for use_lockfile to release .tflock files
           "s3:ListBucket",
         ]
         Resource = [

@@ -475,6 +475,58 @@ Error: Process completed with exit code 1.
 
 ---
 
+## Terraform Deployment Errors (Continued)
+
+### Error 15: Terraform State Lock Conflicts (412 PreconditionFailed)
+
+**Error Message:**
+```
+Error acquiring the state lock. Another operation may be in progress.
+```
+or
+```
+412 PreconditionFailed
+```
+
+**Root Cause:**
+- Multiple deployment workflows running simultaneously
+- Both workflows trying to acquire the same Terraform state lock
+- Can happen when:
+  - Multiple pushes to the same branch happen quickly
+  - A workflow run is retried while another is still running
+  - Old workflows weren't properly disabled
+
+**Solution:**
+1. **Add concurrency controls** to all deploy workflows:
+   ```yaml
+   concurrency:
+     group: deploy-dev  # (or deploy-staging, deploy-prod)
+     cancel-in-progress: false
+   ```
+   This ensures only one deployment runs at a time per environment.
+
+2. **Clear stuck locks**:
+   ```bash
+   # Force unlock via Terraform
+   cd terraform/environments/dev
+   terraform init -reconfigure
+   terraform force-unlock -force <LOCK_ID>
+   
+   # Delete lock file directly from S3
+   aws s3 rm s3://deploymentor-terraform-state/deploymentor/dev/terraform.tfstate.tflock
+   ```
+
+3. **Disable old workflows**: Ensure old deployment workflows are completely disabled (moved out of `.github/workflows/` or renamed to `.disabled`).
+
+**Prevention:**
+- Always add concurrency controls to deployment workflows
+- Use `cancel-in-progress: false` to queue runs instead of cancelling them
+- Regularly audit workflows to ensure no overlapping triggers
+- Test deployments locally before pushing to catch issues early
+- Monitor workflow runs to detect simultaneous executions
+
+---
+
 ## Best Practices Learned
 
 ### 1. Always Test Locally First
@@ -562,7 +614,7 @@ aws apigatewayv2 get-integrations --api-id <API_ID>
 
 ---
 
-**Last Updated**: March 4, 2026  
-**Total Errors Documented**: 14  
+**Last Updated**: March 7, 2026  
+**Total Errors Documented**: 15  
 **Status**: All errors resolved ✅
 

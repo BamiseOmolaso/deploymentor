@@ -36,7 +36,7 @@ module "lambda" {
   handler                        = "lambda_handler.handler"
   runtime                        = "python3.12"
   timeout                        = 60
-  reserved_concurrent_executions = -1  # No reserved limit for dev (unreserved)
+  reserved_concurrent_executions = -1 # No reserved limit for dev (unreserved)
   layers                         = ["arn:aws:lambda:us-east-1:827327671360:layer:deploymentor-dependencies:2"]
 
   environment_variables = {

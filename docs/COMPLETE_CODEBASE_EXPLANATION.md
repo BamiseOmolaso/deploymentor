@@ -581,6 +581,14 @@ backend "s3" {
 - **Layers**: Lambda Layer with `requests` library
 - **Environment variables**: `GITHUB_TOKEN_SSM_PARAM`, `ENVIRONMENT`
 
+**Lambda Zip Path Resolution**:
+- **Zip location**: Created at repo root as `lambda_function.zip` by the deploy workflow
+- **Path resolution**: Uses `${path.root}/../../../lambda_function.zip`
+  - `path.root` points to the environment directory (`terraform/environments/{env}/`)
+  - Goes up 3 levels (`../../../`) to reach repo root
+  - Works for all environments (dev, staging, prod) automatically
+- **Why this matters**: When Terraform runs from `terraform/environments/dev/`, relative paths must account for the directory structure. The original path `${path.root}/../lambda_function.zip` only went up one level, which was correct when running from `terraform/` but broke when moved to environment subdirectories.
+
 ### API Gateway Module (`terraform/modules/api_gateway/`)
 
 **Resources Created**:

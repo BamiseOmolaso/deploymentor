@@ -2,7 +2,9 @@
 # Use pre-built zip file with dependencies
 # The zip file should be created using scripts/package-lambda-with-deps.sh
 locals {
-  lambda_zip_path = "${path.root}/../lambda_function.zip"
+  # Zip is created at repo root, but we're running from terraform/environments/{env}/
+  # path.root points to the environment directory, so go up 3 levels to repo root
+  lambda_zip_path = "${path.root}/../../../lambda_function.zip"
 }
 
 # Lambda function

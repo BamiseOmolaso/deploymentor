@@ -2,9 +2,23 @@ name: CI
 
 on:
   push:
-    branches: [main, develop]
+    branches: [main, staging, prod]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'terraform/**'
+      - 'scripts/**'
+      - 'requirements*.txt'
+      - '.github/workflows/**'
   pull_request:
-    branches: [main, develop]
+    branches: [main, staging, prod]
+    paths:
+      - 'src/**'
+      - 'tests/**'
+      - 'terraform/**'
+      - 'scripts/**'
+      - 'requirements*.txt'
+      - '.github/workflows/**'
 
 permissions:
   contents: read

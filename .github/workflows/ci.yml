@@ -11,6 +11,7 @@ on:
       - 'requirements*.txt'
       - '.github/workflows/**'
   pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
     branches: [main, staging, prod]
     paths:
       - 'src/**'
@@ -23,7 +24,8 @@ on:
 
 permissions:
   contents: read
-  pull-requests: read
+  pull-requests: write
+  checks: write
 
 jobs:
   lint:

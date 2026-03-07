@@ -660,7 +660,12 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
 
 **Trigger**: 
 - Push to `main`, `staging`, or `prod` branches
-- Pull requests to `main`, `staging`, or `prod`
+- Pull requests to `main`, `staging`, or `prod` with explicit event types:
+  - `opened` - When PR is first created
+  - `synchronize` - When new commits are pushed to the PR
+  - `reopened` - When a closed PR is reopened
+  - `ready_for_review` - When a draft PR is marked ready
+- Manual trigger (`workflow_dispatch`) - Can be triggered manually for testing or to re-run checks
 - **Path filtering**: Only runs on changes to:
   - `src/**` - Source code changes
   - `tests/**` - Test file changes
@@ -669,6 +674,11 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
   - `requirements*.txt` - Dependency changes
   - `.github/workflows/**` - Workflow changes
 - **Does NOT run on**: `docs/**`, `*.md`, or other non-code changes
+
+**Permissions**:
+- `contents: read` - Read repository contents
+- `pull-requests: write` - Write PR comments and status checks
+- `checks: write` - Write status checks to PRs (required for checks to appear on PRs)
 
 **Jobs**:
 

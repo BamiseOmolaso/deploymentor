@@ -287,22 +287,7 @@ class WorkflowAnalyzer:
         status = step.get("status")
         number = step.get("number")
 
-        # Try to extract error message from step logs
-        error_message = None
-        if logs:
-            # Search for a log file that contains the step name
-            for filename, log_content in logs.items():
-                if step_name.lower() in filename.lower() or filename.lower() in step_name.lower():
-                    # Extract first line containing "Error", "error", or "failed"
-                    lines = log_content.split("\n")
-                    for line in lines:
-                        if any(keyword in line for keyword in ["Error", "error", "failed"]):
-                            error_message = line.strip()
-                            break
-                    if error_message:
-                        break
-
-        # Check for common error patterns in step name
+        # Check for common error patterns in step name first (needed for fallback search)
         # Also check status field as it might indicate failure
         is_failed = (
             conclusion == "failure"
@@ -311,7 +296,84 @@ class WorkflowAnalyzer:
             or "failed" in step_name.lower()
         )
 
-        # Check for common error patterns in step name or logs
+        # Determine error type from step name (before extracting error_message)
+        # This helps with fallback search logic
+        preliminary_error_type = self._identify_error_type(step_name, None)
+
+        # Try to extract error message from step logs
+        error_message = None
+        if logs:
+            # Step 1: Search for step marker in log content
+            # GitHub step markers look like "##[group]Run <step name>" or contain step name with timestamp
+            step_marker_found = False
+            step_start_line = -1
+            relevant_log_content = None
+
+            for filename, log_content in logs.items():
+                lines = log_content.split("\n")
+                for i, line in enumerate(lines):
+                    # Check for GitHub Actions step markers
+                    if (
+                        f"##[group]Run {step_name}" in line
+                        or f"##[group]{step_name}" in line
+                        or (step_name.lower() in line.lower() and "##" in line)
+                    ):
+                        step_marker_found = True
+                        step_start_line = i
+                        relevant_log_content = log_content
+                        break
+                if step_marker_found:
+                    break
+
+            # Step 2: If step marker found, extract error from that section
+            if step_marker_found and relevant_log_content:
+                lines = relevant_log_content.split("\n")
+                # Search from step marker onwards
+                for line in lines[step_start_line:]:
+                    if any(keyword in line for keyword in ["Error", "error", "failed", "Error:"]):
+                        error_message = line.strip()
+                        break
+
+            # Step 3: Fallback - search all log content for error_type related errors
+            if not error_message:
+                error_keywords = []
+                if preliminary_error_type:
+                    # Map error types to common error keywords
+                    error_keyword_map = {
+                        "terraform": ["terraform", "Error:", "Error configuring"],
+                        "timeout": ["timeout", "timed out"],
+                        "dependency": ["ModuleNotFoundError", "package not found"],
+                        "syntax": ["SyntaxError", "syntax error"],
+                        "permission": ["AccessDenied", "permission denied", "403"],
+                        "network": ["connection refused", "network error"],
+                        "resource": ["out of memory", "disk full"],
+                        "configuration": ["invalid config", "missing required"],
+                    }
+                    error_keywords = error_keyword_map.get(preliminary_error_type, [])
+
+                # Search all log files for errors related to this step/error_type
+                for filename, log_content in logs.items():
+                    lines = log_content.split("\n")
+                    for line in lines:
+                        # Check if line contains step name and error keywords
+                        if step_name.lower() in line.lower():
+                            if any(
+                                keyword in line
+                                for keyword in ["Error", "error", "failed", "Error:"]
+                            ):
+                                error_message = line.strip()
+                                break
+                        # Or check for error_type specific keywords
+                        elif error_keywords and any(
+                            keyword.lower() in line.lower() for keyword in error_keywords
+                        ):
+                            if step_name.lower() in log_content.lower():
+                                error_message = line.strip()
+                                break
+                    if error_message:
+                        break
+
+        # Check for common error patterns in step name or logs (final determination)
         error_type = self._identify_error_type(step_name, error_message)
 
         return {

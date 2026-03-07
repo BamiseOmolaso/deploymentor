@@ -303,3 +303,31 @@ class TestWorkflowAnalyzer:
 
         # Should handle gracefully
         assert "analysis" in result
+
+    def test_analyze_step_extracts_error_from_job_log(self, analyzer):
+        """Test that _analyze_step extracts error message from job-level log content."""
+        step = {
+            "name": "Terraform Plan",
+            "conclusion": "failure",
+            "status": "completed",
+            "number": 10,
+        }
+
+        # Simulate GitHub log structure: job-level log with step markers
+        parsed_logs = {
+            "0_Deploy to AWS.txt": """2024-01-01T00:00:00Z Starting job
+##[group]Run Terraform Plan
+2024-01-01T00:01:00Z Running terraform plan...
+Error: Invalid resource configuration
+  on main.tf line 42, in resource "aws_lambda_function" "this":
+  42:   runtime = "python3.12"
+Invalid runtime version.
+##[endgroup]
+2024-01-01T00:02:00Z Job completed""",
+        }
+
+        result = analyzer._analyze_step(step, parsed_logs)
+
+        assert result["error_type"] == "terraform"
+        assert result["error_message"] is not None
+        assert "Error" in result["error_message"] or "error" in result["error_message"].lower()

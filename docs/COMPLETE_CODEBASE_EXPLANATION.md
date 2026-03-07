@@ -17,6 +17,8 @@
 9. [Security Architecture](#security-architecture)
 10. [Data Flow Diagrams](#data-flow-diagrams)
 11. [How Everything Works Together](#how-everything-works-together)
+12. [Setup and Configuration](#setup-and-configuration)
+13. [DevOps Best Practices](#devops-best-practices)
 
 ---
 
@@ -603,6 +605,10 @@ backend "s3" {
 - **Protocol**: HTTP (not REST)
 - **CORS**: Enabled for all origins
 - **Auto-deploy**: Changes deploy automatically
+- **Authentication**: API key validation for `/analyze` endpoint (implemented in Lambda handler, not at API Gateway level)
+  - API keys stored in SSM Parameter Store at `/deploymentor/{environment}/api_key`
+  - Validated via `x-api-key` header in Lambda handler
+  - `/health` endpoint remains public (no authentication required)
 
 ### GitHub OIDC Module (`terraform/modules/github_oidc/`)
 
@@ -766,6 +772,15 @@ This ensures only one deploy-dev workflow runs at a time. If multiple pushes hap
 7. Runs smoke tests after deployment
 
 **No approval required** - deploys automatically after CI passes.
+
+**Smoke Tests**:
+After deployment, the workflow runs smoke tests (`scripts/smoke-test.sh dev`) which validate:
+1. **Health check endpoint** (`GET /health`) - Public endpoint, no authentication required
+2. **Unauthenticated analyze request** - Should be rejected with 401/403
+3. **Authenticated analyze request** - Should succeed with valid API key from SSM
+4. **Error detection** - Verifies that failed workflows are correctly identified
+
+The smoke test script fetches the API key from SSM Parameter Store at `/deploymentor/{environment}/api_key` and includes it in the `x-api-key` header for authenticated requests.
 
 **Terraform Variables**: All terraform commands explicitly pass `-var="environment=dev"` to prevent CI from hanging on interactive prompts.
 
@@ -1389,6 +1404,42 @@ gh secret set AWS_ROLE_ARN --env <environment> --body <role_arn>
 
 ---
 
+## DevOps Best Practices
+
+### Audit Report
+
+A comprehensive DevOps best practices audit was conducted on 2026-03-07, evaluating the codebase against industry standards for CI/CD, security, reliability, observability, and operational excellence.
+
+**Overall DevOps Maturity: 7/10**
+
+**Key Findings**:
+- **Critical Issues (5)**: IAM wildcard permissions, no API authentication, no retry logic, Lambda timeout risk, no CloudWatch alarms
+- **Important Issues (15)**: Hardcoded values, missing workflow timeouts, inconsistent workflows, no structured logging, no cost controls
+- **Nice to Have (10)**: Enhanced observability, API versioning, rate limiting, distributed tracing
+
+**What's Working Well**:
+- ✅ OIDC authentication properly configured
+- ✅ Remote state management with proper isolation
+- ✅ Comprehensive test coverage (54 tests)
+- ✅ Consistent resource tagging
+- ✅ Well-documented setup and deployment processes
+
+**Priority Fixes** (Completed):
+1. ✅ Replace IAM wildcard permissions with specific resource ARNs — **FIXED**: All permissions now scoped to `deploymentor-*` resources only
+2. ✅ Add API Gateway authentication (API key or Cognito) — **FIXED**: API key validation added for `/analyze` endpoint via `x-api-key` header
+3. ⚠️ Implement retry logic for GitHub API calls — **PENDING**: Will be addressed in v2
+4. ⚠️ Add CloudWatch alarms for Lambda errors and duration — **PENDING**: Will be addressed in v2
+5. ⚠️ Remove hardcoded AWS account IDs and repository names — **PARTIAL**: Some hardcoded values remain in documentation
+
+**Additional Fixes Completed**:
+- ✅ Increased Lambda timeout from 30 to 60 seconds with timeout guard
+- ✅ Added reserved concurrency limit (10 concurrent executions)
+- ✅ Updated Lambda packaging to include runtime dependencies for v2 readiness
+
+**Full Report**: See [DevOps Audit Report](DEVOPS_AUDIT_REPORT.md) for complete findings, explanations, and one-line fixes for all 30 identified issues.
+
+---
+
 ## Conclusion
 
 DeployMentor is a complete serverless application that demonstrates:
@@ -1411,5 +1462,6 @@ For deployment instructions, see [QUICKSTART.md](../QUICKSTART.md).
 For API usage, see [docs/API_USAGE.md](API_USAGE.md).  
 For troubleshooting, see [docs/TROUBLESHOOTING.md](TROUBLESHOOTING.md).  
 For branch protection setup, see [docs/BRANCH_PROTECTION_SETUP.md](BRANCH_PROTECTION_SETUP.md).  
-For environment setup, see [docs/GITHUB_ENVIRONMENT_SETUP.md](GITHUB_ENVIRONMENT_SETUP.md).
+For environment setup, see [docs/GITHUB_ENVIRONMENT_SETUP.md](GITHUB_ENVIRONMENT_SETUP.md).  
+For DevOps best practices audit, see [docs/DEVOPS_AUDIT_REPORT.md](DEVOPS_AUDIT_REPORT.md).
 

@@ -373,6 +373,40 @@ Next post: what else did I miss?
 
 ---
 
+## POST 27 — Terraform Backend Deprecation: dynamodb_table → use_lockfile
+
+Terraform warned me about a deprecation. The S3 backend config used `dynamodb_table = "deploymentor-terraform-locks"`. Terraform 1.14+ deprecated it in favor of `use_lockfile = true`.
+
+The difference: `dynamodb_table` required a DynamoDB table. `use_lockfile` stores the lock as a `.tflock` file in the S3 bucket itself. Simpler. Cheaper. No DynamoDB table needed.
+
+I updated `terraform/main.tf` to use `use_lockfile = true`. Ran `terraform init -reconfigure`. Backend reinitialized cleanly. The deprecation warning disappeared.
+
+But then CI failed. The GitHub Actions role couldn't delete the `.tflock` file. Missing `s3:DeleteObject` permission. I'd added it to Terraform, but Terraform couldn't apply because it needed that permission to release the lock.
+
+Same bootstrapping problem as before. Fixed it directly via AWS CLI, then updated Terraform to match. The lock error disappeared. Deploy went green.
+
+Lesson: deprecation warnings matter. They signal future breaking changes. Fix them early, even if they're just warnings.
+
+Next post: what's next for v2?
+
+---
+
+## POST 28 — The Double Slash Bug: API Gateway Trailing Slash
+
+I tested the API with the exact URL Terraform outputs. Got a 404. "No handler for POST //analyze". The path had a double slash.
+
+The issue: Terraform's API Gateway output includes a trailing slash. When you append `/analyze`, you get `//analyze`. The handler only checked for `/analyze`. Double slash routes returned 404.
+
+Lambda logs showed `path: //analyze`. The fix was one line: normalize the path before routing. Strip leading slashes, then add one back. `//health` becomes `/health`. `//analyze` becomes `/analyze`.
+
+I added tests for both double slash and normal paths. All 54 tests pass. Both URL formats work now.
+
+The lesson: always test with the exact URL your infrastructure outputs. Don't manually clean it. If Terraform says the URL is `https://api.example.com/`, test with that trailing slash. Your code should handle it.
+
+Next post: what's next for v2?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**
@@ -395,7 +429,9 @@ Next post: what else did I miss?
 
 **Stats:**
 - 51+ commits documenting the journey
-- 52+ tests passing
-- 26 distinct issues encountered and resolved
+- 54+ tests passing
+- 28 distinct issues encountered and resolved
 - Real workflows being analyzed in production
 - CI/CD workflow gating implemented
+- Terraform backend modernized (use_lockfile)
+- Path normalization for API Gateway trailing slash

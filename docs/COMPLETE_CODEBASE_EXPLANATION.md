@@ -228,7 +228,7 @@ This means another process is running Terraform against this state.
 - **Modularity**: Reusable modules for common patterns
 
 **How we set it up**:
-- **Backend**: S3 bucket for state storage + DynamoDB for locking
+- **Backend**: S3 bucket for state storage + `use_lockfile` for locking (stores `.tflock` files in S3)
 - **Modules**: 
   - `lambda/` - Lambda function configuration
   - `api_gateway/` - API Gateway configuration
@@ -295,7 +295,7 @@ deploymentor/
 │   ├── main.tf                  # Main configuration
 │   ├── variables.tf             # Input variables
 │   ├── outputs.tf               # Output values
-│   ├── bootstrap/               # Backend setup (S3 + DynamoDB)
+│   ├── bootstrap/               # Backend setup (S3 with use_lockfile)
 │   └── modules/                 # Reusable modules
 │       ├── lambda/              # Lambda function module
 │       ├── api_gateway/         # API Gateway module
@@ -343,7 +343,10 @@ deploymentor/
 - **Flow**:
   1. Logs sanitized request (no sensitive data)
   2. Extracts HTTP method and path from event
-  3. Routes to appropriate handler:
+  3. **Normalizes path**: Handles double slashes from API Gateway trailing slash
+     - Example: `//health` → `/health`, `//analyze` → `/analyze`
+     - This ensures routes work whether API Gateway URL has trailing slash or not
+  4. Routes to appropriate handler:
      - `GET /health` → `_health_check()`
      - `POST /analyze` → `_analyze()`
      - Everything else → 404
@@ -547,16 +550,17 @@ backend "s3" {
   bucket         = "deploymentor-terraform-state"
   key            = "deploymentor/terraform.tfstate"
   region         = "us-east-1"
-  dynamodb_table = "deploymentor-terraform-locks"
-  encrypt        = true
+  use_lockfile = true
+  encrypt      = true
 }
 ```
 
-**Why S3 + DynamoDB**:
+**Why S3 with use_lockfile**:
 - **S3**: Stores Terraform state file (tracks what was created)
-- **DynamoDB**: Provides state locking (prevents concurrent modifications)
+- **use_lockfile**: Stores state lock as `.tflock` file in S3 (prevents concurrent modifications)
 - **Encryption**: State file encrypted at rest
-- **Cost**: ~$0.03/month (S3 free tier + DynamoDB free tier)
+- **Cost**: ~$0.02/month (S3 free tier only, no DynamoDB needed)
+- **Note**: The GitHub Actions role requires `s3:DeleteObject` permission to release locks
 
 **Modules**:
 1. **Lambda Module**: Creates Lambda function, IAM role, CloudWatch log group
@@ -602,10 +606,10 @@ backend "s3" {
 **Permissions**:
 - Lambda: Create, update, get function
 - API Gateway: Create, update, get API
-- S3: Read/write Terraform state bucket
-- DynamoDB: State lock operations
+- S3: Read/write/delete Terraform state bucket (including `.tflock` files for state locking)
 - CloudWatch: Create log groups
 - IAM: Read roles/policies (for imports)
+- **Note**: `s3:DeleteObject` is required for `use_lockfile` to release state locks
 
 ---
 
@@ -783,10 +787,10 @@ Deployment complete ✅
 **GitHub Actions Role**:
 - Lambda: Create, update, get function
 - API Gateway: Create, update, get API
-- S3: Read/write state bucket only
-- DynamoDB: State lock operations only
+- S3: Read/write/delete state bucket (including `.tflock` files for state locking)
 - CloudWatch: Create log groups
 - IAM: Read (for imports)
+- **Note**: `s3:DeleteObject` is required for `use_lockfile` to release state locks
 
 ### Network Security
 
@@ -1098,15 +1102,14 @@ curl -X POST https://xxx.execute-api.us-east-1.amazonaws.com/analyze \
 | CloudWatch Logs | 7-day retention | ~$0.50 |
 | SSM Parameter Store | 1 parameter | Free |
 | S3 (state backend) | <5GB storage | Free (free tier) |
-| DynamoDB (state lock) | <25GB storage | Free (free tier) |
+| S3 (state lock via use_lockfile) | <5GB storage | Free (free tier) |
 | **Total** | | **~$1.70/month** |
 
 ### Free Tier Coverage
 
 - **Lambda**: 1M requests/month free
 - **API Gateway**: 1M requests/month free
-- **S3**: 5GB storage free
-- **DynamoDB**: 25GB storage free
+- **S3**: 5GB storage free (includes state and lock files)
 
 **For low usage, you may pay $0/month!**
 

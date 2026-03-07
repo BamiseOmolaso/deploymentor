@@ -268,6 +268,15 @@ curl -H "Authorization: token YOUR_TOKEN" \
 
 ## Troubleshooting
 
+### "No handler for POST //analyze" or "No handler for GET //health"
+
+**Problem**: Your API URL has a trailing slash, and appending the path creates a double slash.
+
+**Solution**: The handler now normalizes paths automatically, so this should work. If you still see this error:
+- Strip the trailing slash from the base URL before appending the path
+- Example: Use `https://api.example.com/analyze` instead of `https://api.example.com//analyze`
+- Or use the exact URL from Terraform output (it will work with or without trailing slash)
+
 ### "Workflow run not found"
 
 - Verify the run ID is correct

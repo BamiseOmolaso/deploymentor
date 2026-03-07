@@ -596,6 +596,31 @@ Next post: what's next for v2?
 
 ---
 
+## POST 39 — Automating the Manual Setup
+
+I was setting up branch protection rules. Clicking through the GitHub UI. Step by step. Main, staging, prod. Then environments. More clicking. More manual steps. Then I realized — this is all API calls. Why am I clicking?
+
+The problem: setup guides had manual UI steps. Click here, click there, select this, save that. Repetitive. Error-prone. Not reproducible. Every new instance required the same manual work.
+
+The fix: replaced all manual steps with GitHub CLI commands. Branch protection? JSON files and `gh api`. Environments? Same. Reviewers? Same. Everything automated. One script runs it all.
+
+Now setup is:
+```bash
+# Create JSON files
+cat > branch_protection.json << 'EOF'
+{...}
+EOF
+
+# Apply via CLI
+gh api repos/.../branches/main/protection --method PUT --input branch_protection.json
+```
+
+The lesson: if it's in the API, automate it. CLI commands are reproducible. Version controlled. Shareable. Manual steps are not. Automation beats documentation every time.
+
+Next post: what's next for v2?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**

@@ -157,10 +157,13 @@ def _analyze_workflow(owner: str, repo: str, run_id: Any) -> Dict[str, Any]:
 
         # Fetch and parse logs
         try:
+            logger.info("Fetching logs for run_id=%s", run_id)
             raw_logs = github_client.get_workflow_run_logs(owner, repo, run_id)
+            logger.info("Raw logs fetched: %s bytes", len(raw_logs) if raw_logs else 0)
             parsed_logs = github_client.parse_logs_zip(raw_logs)
+            logger.info("Parsed log files: %s", list(parsed_logs.keys()))
         except Exception as e:
-            logger.warning(f"Error fetching or parsing logs: {e}")
+            logger.warning("Log fetching failed: %s", str(e))
             parsed_logs = {}
 
         # Analyze workflow

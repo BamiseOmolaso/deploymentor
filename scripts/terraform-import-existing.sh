@@ -35,8 +35,8 @@ import_if_exists() {
     fi
     
     echo "  Attempting to import: ${resource_address}..."
-    # Import command (tfvars file should provide environment variable)
-    if terraform import "${resource_address}" "${resource_id}" 2>&1; then
+    # Import command - must pass environment variable explicitly
+    if terraform import -var="environment=${ENVIRONMENT}" "${resource_address}" "${resource_id}" 2>&1; then
         echo "  ✅ Imported: ${resource_address}"
         return 0
     else

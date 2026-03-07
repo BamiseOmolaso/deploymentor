@@ -473,6 +473,22 @@ Next post: what's next for v2?
 
 ---
 
+## POST 33 — Two Workflows, One State Lock: The 412 PreconditionFailed Conflict
+
+Two workflows triggered simultaneously on push to main. The old `deploy.yml` and the new `deploy-dev.yml`. Both tried to acquire the same Terraform state lock. Both failed with 412 PreconditionFailed.
+
+The error: "Error acquiring the state lock. Another operation may be in progress." But there wasn't another operation. There were two operations. Two workflows. One state file. One lock.
+
+I thought I'd disabled the old workflow. I renamed it to `.bak`. But GitHub Actions still ran it. The file was still in `.github/workflows/`. GitHub doesn't care about file extensions. It runs any `.yml` file in that directory.
+
+The fix: move it completely out of the workflows directory. Rename it to `.disabled`. Add a comment explaining why. Force unlock the stuck state. Delete the leftover lock file in S3.
+
+The lesson: when replacing workflows, don't just rename them. Move them out. Or delete them. GitHub will run any YAML file in `.github/workflows/`. Always audit for overlapping triggers when adding new workflows.
+
+Next post: what's next for v2?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**

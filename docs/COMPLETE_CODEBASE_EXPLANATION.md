@@ -692,6 +692,25 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
 - **SSM Parameter**: `/deploymentor/prod/github/token`
 - **Manual approval required**: Workflow pauses for explicit approval
 
+### Disabled Workflow (`.github/workflows/deploy.yml.disabled`)
+
+**Status**: DISABLED - replaced by environment-specific workflows
+
+The original `deploy.yml` workflow has been disabled and renamed to `deploy.yml.disabled`. It was causing state lock conflicts with `deploy-dev.yml` because both workflows were triggering on push to `main` and trying to acquire the same Terraform state lock.
+
+**Why it was disabled**:
+- Overlapped with `deploy-dev.yml` (both triggered on push to main)
+- Used old Terraform structure (`terraform/` not `terraform/environments/dev/`)
+- Deployed to prod automatically (violated one-direction flow)
+- Caused 412 PreconditionFailed errors when both workflows ran simultaneously
+
+**Replacement**: The functionality has been split into three environment-specific workflows:
+- `deploy-dev.yml` - Dev environment (auto on main)
+- `deploy-staging.yml` - Staging environment (push to staging)
+- `deploy-prod.yml` - Prod environment (push to prod + approval)
+
+The file is kept for reference only. Do not re-enable.
+
 ### Deploy Dev Workflow (`.github/workflows/deploy-dev.yml`)
 
 **Trigger**: 

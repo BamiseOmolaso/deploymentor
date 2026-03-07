@@ -4,8 +4,10 @@ GitHub API client for fetching workflow run data.
 This module handles authentication and API calls to GitHub.
 """
 
+import io
 import logging
 import os
+import zipfile
 from typing import Any, Dict, Optional
 
 import requests
@@ -152,3 +154,37 @@ class GitHubClient:
         response = self.session.get(url)
         response.raise_for_status()
         return response.content
+
+    def parse_logs_zip(self, log_bytes: bytes) -> Dict[str, str]:
+        """
+        Parse GitHub Actions logs zip file into a dictionary.
+
+        Args:
+            log_bytes: Raw zip file bytes from get_workflow_run_logs()
+
+        Returns:
+            Dictionary mapping filename to log text content.
+            Returns empty dict on any error (malformed zip, empty bytes).
+            Never raises exceptions.
+        """
+        if not log_bytes:
+            return {}
+
+        try:
+            log_dict = {}
+            with zipfile.ZipFile(io.BytesIO(log_bytes), "r") as zip_file:
+                for file_info in zip_file.namelist():
+                    try:
+                        # Read file content as text (GitHub logs are text files)
+                        content = zip_file.read(file_info).decode("utf-8", errors="replace")
+                        log_dict[file_info] = content
+                    except Exception as e:
+                        logger.warning(f"Failed to read file {file_info} from logs zip: {e}")
+                        continue
+            return log_dict
+        except zipfile.BadZipFile:
+            logger.warning("Invalid zip file format in logs")
+            return {}
+        except Exception as e:
+            logger.warning(f"Error parsing logs zip: {e}")
+            return {}

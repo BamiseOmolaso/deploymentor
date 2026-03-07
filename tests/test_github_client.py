@@ -2,7 +2,9 @@
 Tests for GitHub client.
 """
 
+import io
 import os
+import zipfile
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -138,3 +140,56 @@ class TestGitHubClientAPI:
         client = GitHubClient(token="test_token")
         assert "Accept" in client.session.headers
         assert client.session.headers["Accept"] == "application/vnd.github.v3+json"
+
+
+class TestGitHubClientLogParsing:
+    """Test log parsing functionality."""
+
+    @pytest.fixture
+    def github_client(self):
+        """Create GitHub client with mock token."""
+        return GitHubClient(token="test_token")
+
+    def test_parse_logs_zip_success(self, github_client):
+        """Test successful parsing of valid zip file."""
+        # Create a valid zip file in memory
+        zip_buffer = io.BytesIO()
+        with zipfile.ZipFile(zip_buffer, "w", zipfile.ZIP_DEFLATED) as zip_file:
+            zip_file.writestr("job_1/step_1.txt", "Step 1 log content\nError: something failed")
+            zip_file.writestr("job_1/step_2.txt", "Step 2 log content\nSuccess!")
+            zip_file.writestr("job_2/step_1.txt", "Another step log")
+        zip_bytes = zip_buffer.getvalue()
+
+        result = github_client.parse_logs_zip(zip_bytes)
+
+        assert isinstance(result, dict)
+        assert len(result) == 3
+        assert "job_1/step_1.txt" in result
+        assert "job_1/step_2.txt" in result
+        assert "job_2/step_1.txt" in result
+        assert "Step 1 log content" in result["job_1/step_1.txt"]
+        assert "Error: something failed" in result["job_1/step_1.txt"]
+
+    def test_parse_logs_zip_empty_bytes(self, github_client):
+        """Test parsing empty bytes returns empty dict."""
+        result = github_client.parse_logs_zip(b"")
+
+        assert isinstance(result, dict)
+        assert len(result) == 0
+
+    def test_parse_logs_zip_malformed(self, github_client):
+        """Test parsing malformed zip returns empty dict without raising."""
+        # Garbage bytes that are not a valid zip
+        garbage_bytes = b"This is not a zip file\x00\x01\x02\x03"
+
+        result = github_client.parse_logs_zip(garbage_bytes)
+
+        assert isinstance(result, dict)
+        assert len(result) == 0
+
+    def test_parse_logs_zip_none(self, github_client):
+        """Test parsing None returns empty dict."""
+        result = github_client.parse_logs_zip(None)
+
+        assert isinstance(result, dict)
+        assert len(result) == 0

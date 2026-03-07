@@ -155,9 +155,17 @@ def _analyze_workflow(owner: str, repo: str, run_id: Any) -> Dict[str, Any]:
                 )
             return _error_response(500, f"Error fetching workflow data: {error_msg}")
 
+        # Fetch and parse logs
+        try:
+            raw_logs = github_client.get_workflow_run_logs(owner, repo, run_id)
+            parsed_logs = github_client.parse_logs_zip(raw_logs)
+        except Exception as e:
+            logger.warning(f"Error fetching or parsing logs: {e}")
+            parsed_logs = {}
+
         # Analyze workflow
         try:
-            analysis = analyzer.analyze(workflow_run, jobs)
+            analysis = analyzer.analyze(workflow_run, jobs, parsed_logs)
         except Exception as e:
             logger.error(f"Error analyzing workflow: {e}")
             return _error_response(500, f"Error analyzing workflow: {str(e)}")

@@ -86,13 +86,19 @@ class WorkflowAnalyzer:
         ],
     }
 
-    def analyze(self, workflow_run: Dict[str, Any], jobs: Dict[str, Any]) -> Dict[str, Any]:
+    def analyze(
+        self,
+        workflow_run: Dict[str, Any],
+        jobs: Dict[str, Any],
+        logs: Optional[Dict[str, str]] = None,
+    ) -> Dict[str, Any]:
         """
         Analyze a failed workflow run.
 
         Args:
             workflow_run: Workflow run data from GitHub API
             jobs: Jobs data from GitHub API
+            logs: Optional dictionary mapping log filenames to log content
 
         Returns:
             Analysis result with root cause and suggestions
@@ -135,7 +141,7 @@ class WorkflowAnalyzer:
         # Analyze each failed job
         job_analyses = []
         for job in failed_jobs:
-            job_analysis = self._analyze_job(job)
+            job_analysis = self._analyze_job(job, logs)
             job_analyses.append(job_analysis)
 
         # Determine root cause (first failed job is usually the root cause)
@@ -183,12 +189,15 @@ class WorkflowAnalyzer:
 
         return failed_jobs
 
-    def _analyze_job(self, job: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_job(
+        self, job: Dict[str, Any], logs: Optional[Dict[str, str]] = None
+    ) -> Dict[str, Any]:
         """
         Analyze a single failed job.
 
         Args:
             job: Job data from GitHub API
+            logs: Optional dictionary mapping log filenames to log content
 
         Returns:
             Analysis of the job
@@ -209,7 +218,7 @@ class WorkflowAnalyzer:
         error_types = set()
 
         for step in failed_steps:
-            step_analysis = self._analyze_step(step)
+            step_analysis = self._analyze_step(step, logs)
             step_analyses.append(step_analysis)
             if step_analysis.get("error_type"):
                 error_types.add(step_analysis["error_type"])
@@ -260,12 +269,13 @@ class WorkflowAnalyzer:
             "has_step_details": len(steps) > 0,
         }
 
-    def _analyze_step(self, step: Dict[str, Any]) -> Dict[str, Any]:
+    def _analyze_step(self, step: Dict[str, Any], logs: Optional[Dict[str, str]] = None) -> Dict[str, Any]:
         """
         Analyze a single failed step.
 
         Args:
             step: Step data from GitHub API
+            logs: Optional dictionary mapping log filenames to log content
 
         Returns:
             Analysis of the step
@@ -276,9 +286,19 @@ class WorkflowAnalyzer:
         number = step.get("number")
 
         # Try to extract error message from step logs
-        # Note: GitHub API doesn't always provide logs in step data
-        # We'll need to fetch logs separately if needed
         error_message = None
+        if logs:
+            # Search for a log file that contains the step name
+            for filename, log_content in logs.items():
+                if step_name.lower() in filename.lower() or filename.lower() in step_name.lower():
+                    # Extract first line containing "Error", "error", or "failed"
+                    lines = log_content.split("\n")
+                    for line in lines:
+                        if any(keyword in line for keyword in ["Error", "error", "failed"]):
+                            error_message = line.strip()
+                            break
+                    if error_message:
+                        break
 
         # Check for common error patterns in step name
         # Also check status field as it might indicate failure

@@ -2,6 +2,8 @@
 
 > A serverless AI agent that analyzes failed GitHub Actions workflow runs and explains root cause and possible fixes.
 
+<!-- Test PR to verify CI auto-triggers -->
+
 ## 🎯 Project Overview
 
 DeployMentor is a serverless application built on AWS Lambda that:

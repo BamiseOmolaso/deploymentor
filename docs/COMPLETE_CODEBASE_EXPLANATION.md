@@ -756,14 +756,21 @@ This ensures only one deploy-dev workflow runs at a time. If multiple pushes hap
 1. CI workflow runs on push to `main` (if paths match)
 2. If CI passes, Deploy Dev workflow runs automatically
 3. Terraform plan/apply uses `-var="environment=dev"` to prevent interactive prompts
-4. Deploys to dev environment
-5. Runs smoke tests after deployment
+4. **Conditional import**: Checks if `deploymentor-dev` Lambda exists in AWS
+   - If NOT_FOUND: skips import, Terraform creates resources fresh
+   - If exists: runs import script to sync existing resources into state
+5. Deploys to dev environment
+6. Runs smoke tests after deployment
 
 **No approval required** - deploys automatically after CI passes.
 
 **Terraform Variables**: All terraform commands explicitly pass `-var="environment=dev"` to prevent CI from hanging on interactive prompts.
 
 **State Lock Protection**: The concurrency control prevents simultaneous runs from fighting over the same Terraform state lock, eliminating 412 PreconditionFailed errors.
+
+**Conditional Import Logic**: The workflow checks if resources exist before attempting to import them. This handles both scenarios:
+- **Fresh environments**: First deployment, no resources exist → Terraform creates everything
+- **Existing environments**: Resources already exist → Import script syncs them into Terraform state
 
 ### Deploy Staging Workflow (`.github/workflows/deploy-staging.yml`)
 

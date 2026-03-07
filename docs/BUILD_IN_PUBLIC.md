@@ -548,6 +548,31 @@ Next post: what's next for v2?
 
 ---
 
+## POST 37 — The Import Script That Ran When Nothing Existed
+
+The deploy workflow was failing. Import script errors. Resources not found. But wait — dev resources don't exist yet. Why is the import script running?
+
+The problem: the import script ran unconditionally for every environment. It tried to import resources that were never created. For fresh environments like dev and staging, Terraform should create everything from scratch. No imports needed.
+
+The fix: check if resources exist before importing. Added a Lambda existence check:
+```bash
+LAMBDA_EXISTS=$(aws lambda get-function --function-name deploymentor-dev ...)
+if [ "$LAMBDA_EXISTS" = "NOT_FOUND" ]; then
+  echo "No existing resources — Terraform will create them fresh"
+else
+  echo "Existing resources found — running import script"
+  ./terraform-import-existing.sh dev
+fi
+```
+
+Now the workflow handles both scenarios. Fresh environments skip import. Existing environments import correctly. The import script only runs when it should.
+
+The lesson: don't assume resources exist. Check first. Conditional logic prevents unnecessary errors. Makes workflows work for both fresh deployments and existing infrastructure.
+
+Next post: what's next for v2?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**

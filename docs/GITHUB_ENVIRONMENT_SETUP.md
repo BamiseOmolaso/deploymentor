@@ -1,155 +1,216 @@
 # GitHub Environment Setup Guide
 
-This guide explains how to set up GitHub Environments for the DeployMentor deployment lifecycle. GitHub Environments enable manual approval gates and environment-specific secrets.
-
-## Why GitHub Environments?
-
-GitHub Environments provide:
-- **Manual approval gates**: Require explicit approval before deploying to production
-- **Environment-specific secrets**: Different AWS role ARNs per environment
-- **Deployment protection**: Prevent accidental deployments
-- **Deployment history**: Track what was deployed to each environment
+This guide shows how to set up GitHub Environments for `development`, `staging`, and `production` using the GitHub CLI (`gh`). Environments are used for OIDC authentication and manual approval gates.
 
 ## Prerequisites
 
-- Admin access to the GitHub repository
-- AWS IAM roles already created for each environment (via Terraform)
+- GitHub CLI (`gh`) installed and authenticated
+- Admin access to the repository
+- Repository: `BamiseOmolaso/deploymentor` (update for your repo)
 
-## Step-by-Step Setup
+## Quick Setup (CLI)
 
-### Step 1: Navigate to Environment Settings
+### 1. Create Development Environment
 
-1. Go to your repository on GitHub
-2. Click **Settings** (top navigation bar)
-3. In the left sidebar, click **Environments**
+```bash
+gh api repos/BamiseOmolaso/deploymentor/environments/development \
+  --method PUT \
+  --field wait_timer=0
+```
 
-**Direct URL**: `https://github.com/BamiseOmolaso/deploymentor/settings/environments`
+**What this does:**
+- Creates the `development` environment
+- No wait timer (immediate deployment)
+- Used by `deploy-dev.yml` workflow for OIDC authentication
 
-### Step 2: Create Development Environment
+### 2. Create Staging Environment
 
-1. Click **New environment**
-2. Name it exactly: `development` (lowercase, no spaces)
-3. Click **Configure environment**
-4. **Deployment branches**: Select "Selected branches" and add `main`
-5. Click **Save protection rules**
+```bash
+gh api repos/BamiseOmolaso/deploymentor/environments/staging \
+  --method PUT \
+  --field wait_timer=0
+```
 
-**Note**: Development environment doesn't need approval gates (auto-deploys on push to main)
+**What this does:**
+- Creates the `staging` environment
+- No wait timer (immediate deployment)
+- Used by `deploy-staging.yml` workflow for OIDC authentication
 
-### Step 3: Create Staging Environment
+### 3. Create Production Environment
 
-1. Click **New environment** again
-2. Name it exactly: `staging` (lowercase, no spaces)
-3. Click **Configure environment**
-4. **Deployment branches**: Select "Selected branches" and add `main`
-5. **Required reviewers**: Add yourself (`BamiseOmolaso`) as a reviewer (optional for staging)
-6. Click **Save protection rules**
+```bash
+gh api repos/BamiseOmolaso/deploymentor/environments/production \
+  --method PUT \
+  --field wait_timer=0
+```
 
-### Step 4: Create Production Environment (REQUIRED)
+**What this does:**
+- Creates the `production` environment
+- No wait timer (immediate deployment)
+- Used by `deploy-prod.yml` workflow for OIDC authentication
 
-1. Click **New environment** again
-2. Name it exactly: `production` (lowercase, no spaces)
-3. Click **Configure environment**
-4. **Deployment branches**: Select "Selected branches" and add `main`
-5. **Required reviewers**: 
-   - Click **Add reviewer**
-   - Add `BamiseOmolaso` (or your GitHub username)
-   - This creates the manual approval gate
-6. **Wait timer**: (Optional) Set to 5 minutes if you want a delay before deployment
-7. Click **Save protection rules**
+### 4. Add Required Reviewers to Production
 
-**⚠️ CRITICAL**: The production environment name must be exactly `production` (lowercase). The workflow file references this exact name.
+First, get your user ID:
 
-### Step 5: Add Environment Secrets
+```bash
+USER_ID=$(gh api users/BamiseOmolaso --jq '.id')
+echo "User ID: $USER_ID"
+```
 
-For each environment, you need to add the AWS role ARN secret:
+Then add yourself (or other users) as required reviewers:
 
-1. Click on the environment name (e.g., `production`)
-2. Scroll to **Environment secrets**
-3. Click **Add secret**
-4. Name: `AWS_ROLE_ARN`
-5. Value: The ARN of the GitHub Actions IAM role for that environment
-   - Get from Terraform: `terraform output -raw github_actions_role_arn` (from the environment directory)
-   - Format: `arn:aws:iam::ACCOUNT_ID:role/deploymentor-github-actions-role-{env}`
-6. Click **Add secret**
+```bash
+gh api repos/BamiseOmolaso/deploymentor/environments/production \
+  --method PUT \
+  --field wait_timer=0 \
+  --field reviewers="[{\"type\":\"User\",\"id\":$USER_ID}]"
+```
 
-**Repeat for each environment** (development, staging, production) with their respective role ARNs.
+**To add multiple reviewers**, get their user IDs and include them in the array:
+
+```bash
+# Get multiple user IDs
+USER1_ID=$(gh api users/username1 --jq '.id')
+USER2_ID=$(gh api users/username2 --jq '.id')
+
+# Add both as reviewers
+gh api repos/BamiseOmolaso/deploymentor/environments/production \
+  --method PUT \
+  --field wait_timer=0 \
+  --field reviewers="[{\"type\":\"User\",\"id\":$USER1_ID},{\"type\":\"User\",\"id\":$USER2_ID}]"
+```
 
 ## Verification
 
-After setup, verify:
+Verify that all environments were created correctly:
 
-1. **Environments exist**: Go to Settings → Environments, you should see:
-   - `development`
-   - `staging`
-   - `production`
+```bash
+# Check development environment
+gh api repos/BamiseOmolaso/deploymentor/environments/development \
+  --jq '{name: .name, wait_timer: .protection_rules[0].wait_timer}'
 
-2. **Production has approval**: Click on `production` → Check that "Required reviewers" shows your username
+# Check staging environment
+gh api repos/BamiseOmolaso/deploymentor/environments/staging \
+  --jq '{name: .name, wait_timer: .protection_rules[0].wait_timer}'
 
-3. **Test the approval gate**: 
-   - Trigger a production deployment (via workflow_dispatch or git tag `v*`)
-   - The workflow should pause at the "Deploy to Prod" job
-   - You should see a "Review deployments" button
-   - Click it and approve the deployment
+# Check production environment
+gh api repos/BamiseOmolaso/deploymentor/environments/production \
+  --jq '{name: .name, wait_timer: .protection_rules[0].wait_timer, reviewers: [.protection_rules[] | select(.type == "required_reviewers") | .reviewers[] | .login]}'
+```
+
+Expected output:
+- All environments should exist
+- `wait_timer` should be `0` for all
+- Production should show the list of required reviewers
+
+## How Environments Work
+
+### OIDC Authentication
+
+Each environment is referenced in the deployment workflows:
+
+```yaml
+environment: development  # For deploy-dev.yml
+environment: staging      # For deploy-staging.yml
+environment: production   # For deploy-prod.yml
+```
+
+The workflow uses the environment's OIDC configuration to authenticate with AWS. The AWS role ARN is stored as a secret in the GitHub environment.
+
+### Manual Approval Gate (Production Only)
+
+The production environment has required reviewers configured. When `deploy-prod.yml` reaches the deployment job, it pauses and waits for approval:
+
+```yaml
+environment:
+  name: production
+  url: ${{ steps.get-url.outputs.api_url }}
+```
+
+A reviewer must:
+1. Go to the GitHub Actions run
+2. Click "Review deployments"
+3. Approve the deployment
+4. The workflow continues
+
+## Environment Configuration
+
+### Development Environment
+- **Name**: `development`
+- **Wait Timer**: 0 seconds (immediate)
+- **Reviewers**: None (auto-deploys)
+- **Used by**: `deploy-dev.yml`
+- **Purpose**: Automatic deployment after CI passes
+
+### Staging Environment
+- **Name**: `staging`
+- **Wait Timer**: 0 seconds (immediate)
+- **Reviewers**: None (auto-deploys)
+- **Used by**: `deploy-staging.yml`
+- **Purpose**: Deployment after code is merged to staging branch
+
+### Production Environment
+- **Name**: `production`
+- **Wait Timer**: 0 seconds (immediate)
+- **Reviewers**: Required (manual approval)
+- **Used by**: `deploy-prod.yml`
+- **Purpose**: Manual approval gate before production deployment
+
+## Setting Up OIDC Secrets
+
+After creating the environments, you need to add the AWS role ARN as a secret to each environment:
+
+```bash
+# For development environment
+gh secret set AWS_ROLE_ARN \
+  --env development \
+  --body "arn:aws:iam::ACCOUNT_ID:role/deploymentor-github-actions-role-dev"
+
+# For staging environment
+gh secret set AWS_ROLE_ARN \
+  --env staging \
+  --body "arn:aws:iam::ACCOUNT_ID:role/deploymentor-github-actions-role-staging"
+
+# For production environment
+gh secret set AWS_ROLE_ARN \
+  --env production \
+  --body "arn:aws:iam::ACCOUNT_ID:role/deploymentor-github-actions-role-prod"
+```
+
+**Note**: Replace `ACCOUNT_ID` with your AWS account ID. The role ARNs are output by Terraform after deploying each environment.
 
 ## Troubleshooting
 
-### "Environment 'production' not found"
+### Error: "Environment not found"
+- Ensure you have admin access to the repository
+- Verify the environment name is correct (case-sensitive)
+- Check existing environments: `gh api repos/BamiseOmolaso/deploymentor/environments`
 
-**Problem**: The workflow references an environment that doesn't exist.
+### Error: "User not found" (for reviewers)
+- Verify the username is correct
+- Ensure the user has access to the repository
+- Get user ID first: `gh api users/USERNAME --jq '.id'`
 
-**Solution**: 
-1. Go to Settings → Environments
-2. Create the environment with the exact name from the workflow file
-3. Check the workflow file for the exact environment name (case-sensitive)
+### Error: "Secret not found"
+- Secrets must be set per environment
+- Use `gh secret set` with `--env` flag
+- Verify secret exists: `gh secret list --env production`
 
-### "No reviewers available"
+### Manual Approval Not Working
+- Ensure required reviewers are configured
+- Check that the workflow uses `environment: production`
+- Verify reviewers have access to the repository
+- Reviewers must approve via GitHub Actions UI (not CLI)
 
-**Problem**: The production environment requires reviewers but none are configured.
+## Related Documentation
 
-**Solution**:
-1. Go to Settings → Environments → `production`
-2. Add yourself as a required reviewer
-3. Save the protection rules
+- [Branch Protection Setup](BRANCH_PROTECTION_SETUP.md) - Setting up branch protection rules
+- [Promotion Guide](PROMOTION_GUIDE.md) - How to promote code through environments
+- [Complete Codebase Explanation](COMPLETE_CODEBASE_EXPLANATION.md) - Full architecture overview
 
-### "AWS_ROLE_ARN secret not found"
+---
 
-**Problem**: The workflow can't find the AWS role ARN secret.
-
-**Solution**:
-1. Go to Settings → Environments → [environment name]
-2. Add the `AWS_ROLE_ARN` secret with the correct role ARN
-3. Get the role ARN from Terraform: `cd terraform/environments/{env} && terraform output -raw github_actions_role_arn`
-
-### Deployment not pausing for approval
-
-**Problem**: Production deployments proceed without manual approval.
-
-**Solution**:
-1. Verify the environment name in the workflow matches exactly (case-sensitive)
-2. Check that "Required reviewers" is configured in the environment settings
-3. Ensure you're logged in as a user with permission to approve deployments
-
-## Manual Setup Required
-
-**⚠️ IMPORTANT**: This setup must be done manually in the GitHub UI. The workflow code alone is not enough. The `environment: production` block in the workflow file will not create the environment automatically.
-
-You must:
-1. Create the environments manually
-2. Configure protection rules manually
-3. Add secrets manually
-
-The workflow code only references the environments you create.
-
-## Next Steps
-
-After setting up environments:
-
-1. **Test dev deployment**: Push to `main` - should auto-deploy to dev
-2. **Test staging deployment**: Use workflow_dispatch or create tag `staging-*`
-3. **Test prod deployment**: Use workflow_dispatch or create tag `v*` - should pause for approval
-
-## References
-
-- [GitHub Environments Documentation](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment)
-- [Environment Protection Rules](https://docs.github.com/en/actions/deployment/targeting-different-environments/using-environments-for-deployment#required-reviewers)
-
+**Last Updated**: March 7, 2026  
+**Setup Method**: GitHub CLI (`gh`)  
+**Status**: Automated setup ✅

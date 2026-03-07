@@ -32,11 +32,12 @@ data "aws_region" "current" {}
 module "lambda" {
   source = "../../modules/lambda"
 
-  function_name = "${var.project_name}-${var.environment}"
-  handler       = "lambda_handler.handler"
-  runtime       = "python3.12"
-  timeout       = 60
-  layers        = ["arn:aws:lambda:us-east-1:827327671360:layer:deploymentor-dependencies:2"]
+  function_name                  = "${var.project_name}-${var.environment}"
+  handler                        = "lambda_handler.handler"
+  runtime                        = "python3.12"
+  timeout                        = 60
+  reserved_concurrent_executions = -1  # No reserved limit for dev (unreserved)
+  layers                         = ["arn:aws:lambda:us-east-1:827327671360:layer:deploymentor-dependencies:2"]
 
   environment_variables = {
     ENVIRONMENT            = var.environment

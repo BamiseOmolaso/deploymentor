@@ -1377,12 +1377,20 @@ Branch protection rules enforce one-direction code flow (main → staging → pr
 
 **Setup Method**: Automated via GitHub CLI (`gh api`)
 
-**Required Rules**:
-- **main**: Requires CI to pass, 1 approval, admin enforcement
-- **staging**: Requires CI + Deploy Dev to pass, 1 approval, admin enforcement
-- **prod**: Requires CI + Deploy Staging to pass, 1 approval, admin enforcement
+**Required Rules** (Solo Developer Configuration):
+- **main**: Requires specific CI checks to pass (Lint & Format Check, Run Tests, Security Scan, Terraform Validate), no approval required, admin bypass allowed
+- **staging**: Requires specific CI checks + Deploy Dev to pass, no approval required, admin bypass allowed
+- **prod**: Requires specific CI checks + Deploy Staging to pass, no approval required, admin bypass allowed
+
+**Note**: Review requirements are disabled because you cannot approve your own PRs. If you add collaborators later, you can re-enable review requirements.
 
 **Documentation**: See [Branch Protection Setup Guide](BRANCH_PROTECTION_SETUP.md) for complete CLI commands.
+
+**Solo Developer Configuration**: The branch protection rules are configured for solo developers:
+- **No review requirement**: `required_pull_request_reviews: null` (you can't approve your own PRs)
+- **Admin bypass allowed**: `enforce_admins: false` (allows you to merge your own PRs)
+- **Specific CI checks**: Uses individual check names ("Lint & Format Check", "Run Tests", "Security Scan", "Terraform Validate") instead of generic "CI" workflow name
+- **For teams**: If you add collaborators later, you can re-enable review requirements by setting `required_approving_review_count: 1` and `enforce_admins: true`
 
 ### GitHub Environments
 
@@ -1433,8 +1441,10 @@ A comprehensive DevOps best practices audit was conducted on 2026-03-07, evaluat
 
 **Additional Fixes Completed**:
 - ✅ Increased Lambda timeout from 30 to 60 seconds with timeout guard
-- ✅ Added reserved concurrency limit (10 concurrent executions)
+- ✅ Configured reserved concurrency: dev uses unreserved (-1), staging/prod use default (10)
 - ✅ Updated Lambda packaging to include runtime dependencies for v2 readiness
+
+**Note on Reserved Concurrency**: The dev environment uses `-1` (unreserved) to avoid AWS account-level concurrency limits. Staging and prod environments use the default value of 10. If you encounter "UnreservedConcurrentExecution below minimum" errors, set `reserved_concurrent_executions = -1` for those environments as well.
 
 **Full Report**: See [DevOps Audit Report](DEVOPS_AUDIT_REPORT.md) for complete findings, explanations, and one-line fixes for all 30 identified issues.
 

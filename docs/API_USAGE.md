@@ -41,6 +41,8 @@ Analyze a failed GitHub Actions workflow run to identify root causes and get sug
 
 **Endpoint**: `POST /analyze`
 
+**Authentication**: Requires `x-api-key` header with a valid API key stored in SSM Parameter Store.
+
 **Request Body**:
 ```json
 {
@@ -54,8 +56,13 @@ Analyze a failed GitHub Actions workflow run to identify root causes and get sug
 ```bash
 # Get API URL from Terraform output or use environment variable
 API_URL=$(terraform output -raw api_gateway_url)
+
+# Get API key from SSM Parameter Store
+API_KEY=$(aws ssm get-parameter --name "/deploymentor/dev/api_key" --with-decryption --query 'Parameter.Value' --output text)
+
 curl -X POST $API_URL/analyze \
   -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
   -d '{
     "owner": "BamiseOmolaso",
     "repo": "cloudportfoliowebsite",
@@ -108,6 +115,22 @@ curl -X POST $API_URL/analyze \
 
 **Error Responses**:
 
+**401 Unauthorized** - Missing API key:
+```json
+{
+  "error": "Unauthorized",
+  "message": "Missing x-api-key header. API key is required for /analyze endpoint."
+}
+```
+
+**403 Forbidden** - Invalid API key:
+```json
+{
+  "error": "Forbidden",
+  "message": "Invalid API key."
+}
+```
+
 **400 Bad Request** - Missing required field:
 ```json
 {
@@ -136,6 +159,14 @@ curl -X POST $API_URL/analyze \
 }
 ```
 
+**503 Service Unavailable** - Insufficient time remaining:
+```json
+{
+  "error": "Insufficient time remaining to process request",
+  "message": "Request would exceed Lambda timeout. Try with a smaller workflow run or contact support."
+}
+```
+
 ---
 
 ## Error Types
@@ -160,8 +191,13 @@ The analyzer detects the following error types:
 ```bash
 # Get API URL from Terraform output or use environment variable
 API_URL=$(terraform output -raw api_gateway_url)
+
+# Get API key from SSM
+API_KEY=$(aws ssm get-parameter --name "/deploymentor/dev/api_key" --with-decryption --query 'Parameter.Value' --output text)
+
 curl -X POST $API_URL/analyze \
   -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
   -d '{
     "owner": "BamiseOmolaso",
     "repo": "cloudportfoliowebsite",
@@ -179,8 +215,13 @@ curl -X POST $API_URL/analyze \
 ```bash
 # Get API URL from Terraform output or use environment variable
 API_URL=$(terraform output -raw api_gateway_url)
+
+# Get API key from SSM
+API_KEY=$(aws ssm get-parameter --name "/deploymentor/dev/api_key" --with-decryption --query 'Parameter.Value' --output text)
+
 curl -X POST $API_URL/analyze \
   -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
   -d '{
     "owner": "BamiseOmolaso",
     "repo": "cloudportfoliowebsite",
@@ -198,8 +239,13 @@ curl -X POST $API_URL/analyze \
 ```bash
 # Get API URL from Terraform output or use environment variable
 API_URL=$(terraform output -raw api_gateway_url)
+
+# Get API key from SSM
+API_KEY=$(aws ssm get-parameter --name "/deploymentor/dev/api_key" --with-decryption --query 'Parameter.Value' --output text)
+
 curl -X POST $API_URL/analyze \
   -H "Content-Type: application/json" \
+  -H "x-api-key: $API_KEY" \
   -d '{
     "owner": "BamiseOmolaso",
     "repo": "cloudportfoliowebsite",
@@ -225,7 +271,50 @@ Currently, there are no rate limits enforced. However, please use the API respon
 
 ## Authentication
 
-The API currently does not require authentication. This may change in future versions.
+The `/analyze` endpoint requires an API key provided via the `x-api-key` header. The `/health` endpoint is public and does not require authentication.
+
+### Setting Up API Keys
+
+API keys are stored in AWS Systems Manager Parameter Store at `/deploymentor/{environment}/api_key` as SecureString parameters.
+
+**Generate and store an API key**:
+```bash
+# Generate a secure random API key
+API_KEY=$(openssl rand -hex 32)
+
+# Store in SSM for dev environment
+aws ssm put-parameter \
+  --name "/deploymentor/dev/api_key" \
+  --value "$API_KEY" \
+  --type SecureString \
+  --overwrite
+
+# Store in SSM for staging environment
+aws ssm put-parameter \
+  --name "/deploymentor/staging/api_key" \
+  --value "$API_KEY" \
+  --type SecureString \
+  --overwrite
+
+# Store in SSM for prod environment
+aws ssm put-parameter \
+  --name "/deploymentor/prod/api_key" \
+  --value "$API_KEY" \
+  --type SecureString \
+  --overwrite
+
+echo "API key: $API_KEY"
+```
+
+**Retrieve API key**:
+```bash
+# Get API key from SSM
+aws ssm get-parameter \
+  --name "/deploymentor/dev/api_key" \
+  --with-decryption \
+  --query 'Parameter.Value' \
+  --output text
+```
 
 ---
 

@@ -18,7 +18,7 @@ variable "runtime" {
 variable "timeout" {
   description = "Lambda timeout in seconds"
   type        = number
-  default     = 30
+  default     = 60
 }
 
 variable "memory_size" {
@@ -49,5 +49,11 @@ variable "layers" {
   description = "List of Lambda Layer ARNs to attach to the function"
   type        = list(string)
   default     = []
+}
+
+variable "reserved_concurrent_executions" {
+  description = "Reserved concurrent executions for Lambda. -1 means unreserved."
+  type        = number
+  default     = 10
 }
 

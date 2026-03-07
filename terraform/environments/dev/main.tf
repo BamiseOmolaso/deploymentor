@@ -35,13 +35,14 @@ module "lambda" {
   function_name = "${var.project_name}-${var.environment}"
   handler       = "lambda_handler.handler"
   runtime       = "python3.12"
-  timeout       = 30
+  timeout       = 60
   layers        = ["arn:aws:lambda:us-east-1:827327671360:layer:deploymentor-dependencies:2"]
 
   environment_variables = {
     ENVIRONMENT            = var.environment
     GITHUB_TOKEN_SSM_PARAM = var.github_token_ssm_param
     LOG_LEVEL              = var.log_level
+    API_KEY_SSM_PARAM      = "/deploymentor/${var.environment}/api_key"
   }
 
   tags = {

@@ -9,15 +9,16 @@ locals {
 
 # Lambda function
 resource "aws_lambda_function" "this" {
-  filename         = local.lambda_zip_path
-  function_name    = var.function_name
-  role             = aws_iam_role.lambda.arn
-  handler          = "src.${var.handler}"
-  runtime          = var.runtime
-  timeout          = var.timeout
-  memory_size      = var.memory_size
-  source_code_hash = fileexists(local.lambda_zip_path) ? filebase64sha256(local.lambda_zip_path) : null
-  layers           = var.layers # Lambda Layers for dependencies
+  filename                       = local.lambda_zip_path
+  function_name                  = var.function_name
+  role                           = aws_iam_role.lambda.arn
+  handler                        = "src.${var.handler}"
+  runtime                        = var.runtime
+  timeout                        = var.timeout
+  memory_size                    = var.memory_size
+  reserved_concurrent_executions = var.reserved_concurrent_executions
+  source_code_hash               = fileexists(local.lambda_zip_path) ? filebase64sha256(local.lambda_zip_path) : null
+  layers                         = var.layers # Lambda Layers for dependencies
 
   environment {
     variables = var.environment_variables

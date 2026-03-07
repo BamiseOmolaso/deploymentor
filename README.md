@@ -37,6 +37,7 @@ GitHub Actions → API Gateway HTTP API → AWS Lambda → AI Analysis → Respo
 - **[Local Development](docs/LOCAL_DEVELOPMENT.md)** - Set up local development environment
 - **[Testing Guide](docs/TESTING.md)** - How to test the API
 - **[SSM Setup](docs/SSM_SETUP.md)** - Configure AWS SSM Parameter Store
+- **[DevOps Audit Report](docs/DEVOPS_AUDIT_REPORT.md)** - Comprehensive DevOps best practices audit
 
 ## 📁 Project Structure
 

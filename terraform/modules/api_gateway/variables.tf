@@ -24,3 +24,9 @@ variable "tags" {
   default     = {}
 }
 
+variable "api_key_ssm_param" {
+  description = "SSM Parameter Store path for API key (optional, for authentication)"
+  type        = string
+  default     = ""
+}
+

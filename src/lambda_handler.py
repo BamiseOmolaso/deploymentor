@@ -151,8 +151,7 @@ def _validate_api_key(event: Dict[str, Any]) -> Optional[Dict[str, Any]]:
                 {
                     "error": "Unauthorized",
                     "message": (
-                        "Missing x-api-key header. "
-                        "API key is required for /analyze endpoint."
+                        "Missing x-api-key header. " "API key is required for /analyze endpoint."
                     ),
                 }
             ),

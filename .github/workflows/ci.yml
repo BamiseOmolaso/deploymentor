@@ -19,6 +19,7 @@ on:
       - 'scripts/**'
       - 'requirements*.txt'
       - '.github/workflows/**'
+  workflow_dispatch:
 
 permissions:
   contents: read

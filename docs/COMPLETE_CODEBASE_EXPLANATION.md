@@ -755,12 +755,15 @@ This ensures only one deploy-dev workflow runs at a time. If multiple pushes hap
 **Flow**:
 1. CI workflow runs on push to `main` (if paths match)
 2. If CI passes, Deploy Dev workflow runs automatically
-3. Terraform plan/apply uses `-var="environment=dev"` to prevent interactive prompts
-4. **Conditional import**: Checks if `deploymentor-dev` Lambda exists in AWS
+3. **Lock cleanup**: Checks for stale Terraform state lock in S3 and clears it if found
+   - Prevents state lock errors from local terraform runs that were interrupted
+   - Automatically recovers from stale locks without manual intervention
+4. Terraform plan/apply uses `-var="environment=dev"` to prevent interactive prompts
+5. **Conditional import**: Checks if `deploymentor-dev` Lambda exists in AWS
    - If NOT_FOUND: skips import, Terraform creates resources fresh
    - If exists: runs import script to sync existing resources into state
-5. Deploys to dev environment
-6. Runs smoke tests after deployment
+6. Deploys to dev environment
+7. Runs smoke tests after deployment
 
 **No approval required** - deploys automatically after CI passes.
 

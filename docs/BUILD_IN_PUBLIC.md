@@ -573,6 +573,29 @@ Next post: what's next for v2?
 
 ---
 
+## POST 38 — The Stale Lock That Blocked Every Deploy
+
+The deploy workflow was failing. State lock error. Every single run. The lock file was stuck in S3. Left behind by a local terraform plan that crashed. CI couldn't acquire the lock. Deploys blocked.
+
+The problem: local terraform runs create lock files in S3. If the process crashes or is interrupted, the lock stays. CI tries to run terraform. Can't acquire the lock. Fails. Manual cleanup required every time.
+
+The fix: automatic lock cleanup before every terraform operation. Added a step that checks for stale locks and clears them:
+```bash
+LOCK_EXISTS=$(aws s3 ls s3://.../terraform.tfstate.tflock ...)
+if [ "$LOCK_EXISTS" = "EXISTS" ]; then
+  echo "⚠️  Stale lock found — clearing it"
+  aws s3 rm s3://.../terraform.tfstate.tflock
+fi
+```
+
+Now every deploy checks for stale locks first. Clears them automatically. No more manual intervention. Deploys work reliably even after local terraform runs crash.
+
+The lesson: assume local operations can leave stale state. Build cleanup into CI/CD. Automatic recovery beats manual fixes every time. One small step prevents hours of debugging.
+
+Next post: what's next for v2?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**

@@ -681,7 +681,65 @@ aws apigatewayv2 get-integrations --api-id <API_ID>
 
 ---
 
+### Error 18: Terraform State Lock Stuck from Local Run
+
+**Error Message:**
+```
+Error: Error acquiring the state lock
+
+LockID:    02b641bd-0b01-61da-5417-62e1ba992da7
+Path:      deploymentor/dev/terraform.tfstate
+Who:       user@local-machine
+Version:   1.14.6
+Created:   2026-03-07 16:20:00.000000000 +0000 UTC
+Info:      Locked by terraform plan at terraform/environments/dev
+```
+
+**Root Cause:**
+- Local terraform runs create lock files in S3 when using `use_lockfile = true`
+- If the local process crashes, is interrupted, or the terminal is closed, the lock file remains in S3
+- CI/CD workflows cannot acquire the lock because it's still held by the stale local process
+- Manual cleanup required every time this happens
+
+**Solution:**
+1. **Immediate fix**: Delete the stale lock file from S3:
+   ```bash
+   aws s3 rm s3://deploymentor-terraform-state/deploymentor/dev/terraform.tfstate.tflock
+   ```
+
+2. **Prevention**: Added automatic lock cleanup step to all deploy workflows:
+   ```yaml
+   - name: Clear any stale Terraform state lock
+     run: |
+       LOCK_EXISTS=$(aws s3 ls s3://deploymentor-terraform-state/deploymentor/dev/terraform.tfstate.tflock 2>/dev/null && echo "EXISTS" || echo "NONE")
+       if [ "$LOCK_EXISTS" = "EXISTS" ]; then
+         echo "⚠️  Stale lock found — clearing it"
+         aws s3 rm s3://deploymentor-terraform-state/deploymentor/dev/terraform.tfstate.tflock
+         echo "✅ Lock cleared"
+       else
+         echo "✅ No stale lock found"
+       fi
+   ```
+
+3. **Concurrency controls**: All deploy workflows have concurrency groups to prevent simultaneous runs:
+   ```yaml
+   concurrency:
+     group: deploy-dev
+     cancel-in-progress: false
+   ```
+
+**Prevention:**
+- Always let local terraform operations complete (plan, apply, destroy)
+- If interrupted, manually clear the lock: `aws s3 rm s3://deploymentor-terraform-state/deploymentor/{env}/terraform.tfstate.tflock`
+- Use `terraform force-unlock <LOCK_ID>` if you know the lock ID
+- The automatic cleanup step in CI/CD prevents this from blocking deployments
+- Concurrency controls prevent multiple CI/CD runs from fighting over the same lock
+
+**Note**: The lock cleanup step runs before every Terraform operation in CI/CD, automatically recovering from stale locks left by local runs.
+
+---
+
 **Last Updated**: March 7, 2026  
-**Total Errors Documented**: 17  
+**Total Errors Documented**: 18  
 **Status**: All errors resolved ✅
 

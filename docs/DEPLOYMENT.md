@@ -8,19 +8,34 @@
 4. **GitHub Repository** with Actions enabled
 5. **GitHub Personal Access Token** (for GitHub API access)
 
-## Step 1: Create SSM Parameter
+## Step 1: Create SSM Parameters (Per Environment)
 
-First, store your GitHub token securely:
+Store your GitHub token securely for each environment:
 
 ```bash
+# Dev environment
 aws ssm put-parameter \
-  --name "/deploymentor/github/token" \
+  --name "/deploymentor/dev/github/token" \
+  --value "your-github-token-here" \
+  --type "SecureString" \
+  --region us-east-1
+
+# Staging environment
+aws ssm put-parameter \
+  --name "/deploymentor/staging/github/token" \
+  --value "your-github-token-here" \
+  --type "SecureString" \
+  --region us-east-1
+
+# Prod environment
+aws ssm put-parameter \
+  --name "/deploymentor/prod/github/token" \
   --value "your-github-token-here" \
   --type "SecureString" \
   --region us-east-1
 ```
 
-**Security Note**: Never commit this token to git!
+**Security Note**: Never commit tokens to git! Each environment has its own SSM parameter.
 
 ## Step 2: Configure GitHub OIDC
 
@@ -78,62 +93,136 @@ aws iam create-open-id-connect-provider \
   --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
 ```
 
-## Step 3: Configure Terraform Backend (Optional)
+## Step 3: Configure Terraform Backend
 
-For production, use S3 backend for Terraform state:
+The S3 backend is already configured. Each environment uses a separate state file:
 
-1. Create S3 bucket for state:
-```bash
-aws s3 mb s3://deploymentor-terraform-state --region us-east-1
-aws s3api put-bucket-versioning \
-  --bucket deploymentor-terraform-state \
-  --versioning-configuration Status=Enabled
-```
+- Dev: `deploymentor/dev/terraform.tfstate`
+- Staging: `deploymentor/staging/terraform.tfstate`
+- Prod: `deploymentor/prod/terraform.tfstate`
 
-2. Update `terraform/main.tf` backend configuration
+All state files are stored in the same S3 bucket: `deploymentor-terraform-state`
 
-## Step 4: Deploy Infrastructure
+## Step 4: Set Up GitHub Environments
+
+**⚠️ CRITICAL**: This step must be done manually in the GitHub UI. See [GITHUB_ENVIRONMENT_SETUP.md](GITHUB_ENVIRONMENT_SETUP.md) for detailed instructions.
+
+1. Go to repository Settings → Environments
+2. Create three environments: `development`, `staging`, `production`
+3. Configure `production` with required reviewers (manual approval gate)
+4. Add `AWS_ROLE_ARN` secret to each environment
+
+## Step 5: Deploy Infrastructure
+
+### Environment Structure
+
+Each environment has its own Terraform configuration:
+- `terraform/environments/dev/` - Dev environment
+- `terraform/environments/staging/` - Staging environment
+- `terraform/environments/prod/` - Prod environment
 
 ### Local Deployment (for testing)
 
 ```bash
-cd terraform
+# Deploy to dev
+cd terraform/environments/dev
 terraform init
-terraform plan -var="environment=dev"
-terraform apply -var="environment=dev"
+terraform plan
+terraform apply
+
+# Deploy to staging
+cd ../staging
+terraform init
+terraform plan
+terraform apply
+
+# Deploy to prod
+cd ../prod
+terraform init
+terraform plan
+terraform apply
 ```
 
-### CI/CD Deployment
+### CI/CD Deployment Lifecycle
 
-The deployment process uses a two-stage pipeline:
+The deployment process uses a dev → staging → prod lifecycle:
 
 1. **CI Workflow** (`.github/workflows/ci.yml`):
    - Runs automatically on every push to `main` or `develop`
    - Performs code quality checks (formatting, linting)
-   - Runs all 52 unit tests
+   - Runs all 54 unit tests
    - Scans for security issues
    - Validates Terraform configuration
 
-2. **Deploy Workflow** (`.github/workflows/deploy.yml`):
-   - **Only runs after CI workflow passes successfully**
-   - Triggers via `workflow_run` when CI completes
-   - Deploys infrastructure via Terraform
-   - Updates Lambda function
-   - Performs health checks
+2. **Deploy Dev Workflow** (`.github/workflows/deploy-dev.yml`):
+   - **Auto-deploys on every push to `main`** (after CI passes)
+   - Deploys to dev environment
+   - Runs smoke tests automatically
+   - No approval required
 
-**Important**: The deploy workflow is gated on CI success. If CI fails (tests, linting, formatting), deployment is automatically skipped. This prevents bad code from reaching production.
+3. **Deploy Staging Workflow** (`.github/workflows/deploy-staging.yml`):
+   - **Manual trigger** (`workflow_dispatch`) or git tag `staging-*`
+   - Deploys to staging environment
+   - Runs smoke tests automatically
+   - Optional approval (configurable)
 
-**To deploy**:
-1. Push your changes to `main` branch
-2. CI workflow runs automatically
-3. If CI passes, deploy workflow runs automatically
-4. If CI fails, fix the issues and push again
+4. **Deploy Prod Workflow** (`.github/workflows/deploy-prod.yml`):
+   - **Manual trigger** (`workflow_dispatch`) or git tag `v*`
+   - **Never triggers on push** - only manual or version tags
+   - Three jobs: verify-staging → deploy (with approval) → verify-prod
+   - **Requires manual approval** before deploying to production
+   - Runs smoke tests after deployment
 
-## Step 5: Verify Deployment
+**Deployment Flow**:
+```
+Push to main → CI runs → Dev auto-deploys
+                                    ↓
+                          Test in dev, then manually trigger staging
+                                    ↓
+                          Test in staging, then manually trigger prod
+                                    ↓
+                          Manual approval required → Prod deploys
+```
 
-1. Get API URL:
+**To deploy to dev**: Just push to `main` - it deploys automatically after CI passes.
+
+**To deploy to staging**: 
+- Go to Actions → Deploy Staging → Run workflow
+- Or create a git tag: `git tag staging-v1.0.0 && git push origin staging-v1.0.0`
+
+**To deploy to prod**:
+- Go to Actions → Deploy Prod → Run workflow
+- Or create a version tag: `git tag v1.0.0 && git push origin v1.0.0`
+- **Workflow will pause for manual approval** - click "Review deployments" and approve
+
+## Step 6: Verify Deployment
+
+### Using Smoke Test Script
+
+The easiest way to verify deployment is using the smoke test script:
+
 ```bash
-cd terraform
+# Test dev environment
+./scripts/smoke-test.sh dev
+
+# Test staging environment
+./scripts/smoke-test.sh staging
+
+# Test prod environment
+./scripts/smoke-test.sh prod
+```
+
+The script automatically:
+- Gets the API URL from Terraform output
+- Tests `/health` endpoint (expects 200)
+- Tests `/analyze` endpoint with a known failed run ID
+- Verifies error detection is working
+
+### Manual Verification
+
+1. Get API URL for an environment:
+```bash
+cd terraform/environments/dev
 terraform output api_gateway_url
 ```
 
@@ -151,23 +240,25 @@ Expected response:
 }
 ```
 
-## Step 6: Update Lambda Code
+## Step 7: Update Lambda Code
 
-After making code changes:
+After making code changes, CI/CD handles deployment automatically:
+
+- **Dev**: Auto-deploys on push to `main`
+- **Staging**: Manual trigger or `staging-*` tag
+- **Prod**: Manual trigger or `v*` tag (with approval)
+
+Or deploy manually:
 
 ```bash
 # Package Lambda
-cd src
-zip -r ../lambda_function.zip .
-cd ..
+zip -r lambda_function.zip src/
 
-# Update Lambda function
+# Update Lambda function (replace {env} with dev/staging/prod)
 aws lambda update-function-code \
-  --function-name deploymentor-prod \
+  --function-name deploymentor-{env} \
   --zip-file fileb://lambda_function.zip
 ```
-
-Or let CI/CD handle it automatically.
 
 ## Troubleshooting
 
@@ -176,7 +267,10 @@ Or let CI/CD handle it automatically.
 - Verify deployment completed successfully
 
 ### SSM Parameter Not Found
-- Verify parameter exists: `aws ssm get-parameter --name "/deploymentor/github/token"`
+- Verify parameter exists for the correct environment:
+  - Dev: `aws ssm get-parameter --name "/deploymentor/dev/github/token"`
+  - Staging: `aws ssm get-parameter --name "/deploymentor/staging/github/token"`
+  - Prod: `aws ssm get-parameter --name "/deploymentor/prod/github/token"`
 - Check Lambda IAM role has SSM read permissions
 
 ### API Gateway 502 Error
@@ -194,13 +288,17 @@ Or let CI/CD handle it automatically.
 To rollback to previous version:
 
 ```bash
-cd terraform
-terraform plan -destroy
+# Rollback specific environment
+cd terraform/environments/{env}
+terraform plan
 # Review changes
 terraform apply
 ```
 
-Or redeploy previous Lambda version from AWS Console.
+Or redeploy previous Lambda version from AWS Console:
+- Go to Lambda function → Versions
+- Select previous version → Publish as new version
+- Update alias to point to previous version
 
 ## Cost Monitoring
 

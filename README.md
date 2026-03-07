@@ -58,7 +58,9 @@ deploymentor/
 ├── .github/                # GitHub configuration
 │   └── workflows/         # CI/CD workflows
 │       ├── ci.yml        # Continuous Integration
-│       └── deploy.yml    # Deployment workflow
+│       ├── deploy-dev.yml    # Dev deployment (auto on push)
+│       ├── deploy-staging.yml # Staging deployment (manual/tag)
+│       └── deploy-prod.yml    # Prod deployment (manual/tag with approval)
 ├── tests/                  # Test files
 ├── scripts/                # Utility scripts
 ├── .gitignore            # Git ignore rules
@@ -179,9 +181,21 @@ pytest -q
 
 **Expected**: All 41 tests should pass. If tests fail, see Troubleshooting section below.
 
-### 3. Deploy (Terraform)
+### 3. Set Up GitHub Environments
 
-Deploy the infrastructure to AWS. This is a two-phase process:
+**⚠️ IMPORTANT**: Before deploying, you must set up GitHub Environments manually. This enables the manual approval gate for production deployments.
+
+See [docs/GITHUB_ENVIRONMENT_SETUP.md](docs/GITHUB_ENVIRONMENT_SETUP.md) for step-by-step instructions.
+
+**Quick summary**:
+1. Go to repository Settings → Environments
+2. Create three environments: `development`, `staging`, `production`
+3. Configure `production` with required reviewers (manual approval gate)
+4. Add `AWS_ROLE_ARN` secret to each environment
+
+### 4. Deploy (Terraform)
+
+Deploy the infrastructure to AWS. The project uses a three-environment lifecycle (dev → staging → prod):
 
 #### Phase 1: Bootstrap Backend
 
@@ -241,18 +255,40 @@ Get a GitHub token: [GitHub Settings → Developer settings → Personal access 
 
 #### Get Your API URL
 
-After deployment completes, get your API URL:
+After deployment completes, get your API URL for the environment:
 
 ```bash
-cd terraform
+# Dev environment
+cd terraform/environments/dev
+terraform output api_gateway_url
+
+# Staging environment
+cd ../staging
+terraform output api_gateway_url
+
+# Prod environment
+cd ../prod
 terraform output api_gateway_url
 ```
 
 **Expected output**: `https://xxxxx.execute-api.us-east-1.amazonaws.com`
 
-### 4. Test
+### 5. Test
 
-Test that everything is working:
+Test that everything is working using the smoke test script:
+
+```bash
+# Test dev environment
+./scripts/smoke-test.sh dev
+
+# Test staging environment
+./scripts/smoke-test.sh staging
+
+# Test prod environment
+./scripts/smoke-test.sh prod
+```
+
+Or test manually:
 
 ```bash
 # Replace with your actual API URL from above
@@ -269,13 +305,19 @@ curl https://YOUR_API_ID.execute-api.us-east-1.amazonaws.com/health
 Check Lambda function logs:
 
 ```bash
-# Replace 'prod' with your environment if different
+# Dev environment
+aws logs tail "/aws/lambda/deploymentor-dev" --since 10m
+
+# Staging environment
+aws logs tail "/aws/lambda/deploymentor-staging" --since 10m
+
+# Prod environment
 aws logs tail "/aws/lambda/deploymentor-prod" --since 10m
 ```
 
 **Expected**: You should see log entries showing your health check request.
 
-### 5. Cost Notes
+### 6. Cost Notes
 
 DeployMentor is designed to be **low-cost** (~$1.73/month):
 

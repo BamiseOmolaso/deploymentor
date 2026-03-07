@@ -617,7 +617,7 @@ backend "s3" {
 
 ### Workflow Architecture
 
-The CI/CD pipeline consists of two workflows that work together:
+The CI/CD pipeline consists of multiple workflows that implement a dev → staging → prod deployment lifecycle:
 
 1. **CI Workflow** (`.github/workflows/ci.yml`): Runs on every push/PR
    - Code quality checks (formatting, linting)
@@ -625,10 +625,20 @@ The CI/CD pipeline consists of two workflows that work together:
    - Security scans
    - Terraform validation
 
-2. **Deploy Workflow** (`.github/workflows/deploy.yml`): Runs only after CI passes
-   - Infrastructure deployment
-   - Lambda function update
-   - Health checks
+2. **Deploy Dev Workflow** (`.github/workflows/deploy-dev.yml`): Auto-deploys to dev
+   - Triggers on every push to `main`
+   - Deploys to dev environment
+   - Runs smoke tests after deployment
+
+3. **Deploy Staging Workflow** (`.github/workflows/deploy-staging.yml`): Manual or tag-based staging deployment
+   - Triggers on `workflow_dispatch` or git tag `staging-*`
+   - Deploys to staging environment
+   - Runs smoke tests after deployment
+
+4. **Deploy Prod Workflow** (`.github/workflows/deploy-prod.yml`): Production deployment with manual approval
+   - Triggers on `workflow_dispatch` or git tag `v*` (never on push)
+   - Three jobs: verify-staging → deploy (with approval gate) → verify-prod
+   - Requires manual approval before deploying to production
 
 ### CI Workflow (`.github/workflows/ci.yml`)
 
@@ -659,52 +669,95 @@ The CI/CD pipeline consists of two workflows that work together:
 
 **All jobs must pass** for CI to be considered successful.
 
-### Deploy Workflow (`.github/workflows/deploy.yml`)
+### Environment Lifecycle
 
-**Trigger**: `workflow_run` - Triggers when CI workflow completes
+**Dev Environment**:
+- **Purpose**: Fast iteration, testing new features
+- **Trigger**: Every push to `main` (automatic)
+- **State**: `deploymentor/dev/terraform.tfstate`
+- **SSM Parameter**: `/deploymentor/dev/github/token`
+- **No approval required**: Auto-deploys after CI passes
 
-**Important**: The deploy workflow only runs if:
-- CI workflow completes (not cancelled)
-- CI workflow conclusion is `success`
+**Staging Environment**:
+- **Purpose**: Pre-production testing, validation before prod
+- **Trigger**: Manual (`workflow_dispatch`) or git tag `staging-*`
+- **State**: `deploymentor/staging/terraform.tfstate`
+- **SSM Parameter**: `/deploymentor/staging/github/token`
+- **Optional approval**: Can be configured with reviewers
 
-**Configuration**:
-```yaml
-on:
-  workflow_run:
-    workflows: ["CI"]
-    types:
-      - completed
-    branches:
-      - main
+**Prod Environment**:
+- **Purpose**: Production workload, real users
+- **Trigger**: Manual (`workflow_dispatch`) or git tag `v*` (never on push)
+- **State**: `deploymentor/prod/terraform.tfstate`
+- **SSM Parameter**: `/deploymentor/prod/github/token`
+- **Manual approval required**: Workflow pauses for explicit approval
 
-jobs:
-  deploy:
-    if: ${{ github.event.workflow_run.conclusion == 'success' }}
-```
+### Deploy Dev Workflow (`.github/workflows/deploy-dev.yml`)
 
-**What this means**:
-- Deploy workflow waits for CI to finish
-- If CI fails, deploy never starts (skipped)
-- If CI passes, deploy runs automatically
-- Only triggers on `main` branch
+**Trigger**: 
+- Push to `main` branch
+- Manual (`workflow_dispatch`)
+
+**Environment**: `development` (GitHub environment)
 
 **Steps**:
+1. Checkout code
+2. Configure AWS credentials (OIDC)
+3. Package Lambda function
+4. Terraform init/plan/apply (dev environment)
+5. Smoke test (verifies `/health` and `/analyze` endpoints)
 
-1. **Checkout Code**: `actions/checkout@v4`
-2. **Configure AWS Credentials (OIDC)**:
-   - Uses `aws-actions/configure-aws-credentials@v4`
-   - Assumes IAM role via OIDC (no AWS keys)
-   - Role ARN stored in GitHub secret: `AWS_ROLE_ARN`
-3. **Set up Python**: `actions/setup-python@v5` (Python 3.12)
-4. **Install Dependencies**: `pip install -r requirements.txt`
-5. **Package Lambda**: `zip -r lambda_function.zip src/`
-6. **Set up Terraform**: `hashicorp/setup-terraform@v3` (version 1.14.6)
-7. **Terraform Init**: `terraform init -input=false`
-8. **Import Existing Resources**: Runs `terraform-import-existing.sh` (handles pre-existing resources)
-9. **Terraform Plan**: `terraform plan -out=tfplan`
-10. **Terraform Apply**: `terraform apply -auto-approve tfplan`
-11. **Get API URL**: `terraform output api_gateway_url`
-12. **Health Check**: `curl ${API_URL}/health`
+**No approval required** - deploys automatically.
+
+### Deploy Staging Workflow (`.github/workflows/deploy-staging.yml`)
+
+**Trigger**:
+- Manual (`workflow_dispatch`)
+- Git tag `staging-*` (e.g., `staging-v1.0.0`)
+
+**Environment**: `staging` (GitHub environment)
+
+**Steps**: Same as dev workflow, but targets staging environment.
+
+### Deploy Prod Workflow (`.github/workflows/deploy-prod.yml`)
+
+**Trigger**:
+- Manual (`workflow_dispatch`)
+- Git tag `v*` (e.g., `v1.0.0`)
+- **Never triggers on push** - only manual or version tags
+
+**Environment**: `production` (GitHub environment with approval gate)
+
+**Jobs** (run in sequence):
+
+1. **verify-staging**: 
+   - Runs smoke tests against staging environment
+   - Ensures staging is healthy before deploying to prod
+
+2. **deploy** (with approval gate):
+   - Pauses for manual approval (GitHub environment protection)
+   - Requires explicit approval from configured reviewers
+   - Deploys to production after approval
+   - Gets API URL and stores it for next job
+
+3. **verify-prod**:
+   - Runs smoke tests against production
+   - Fails if tests don't pass (triggers rollback consideration)
+
+**Manual Approval Gate**:
+```yaml
+environment:
+  name: production
+  url: ${{ steps.get-url.outputs.api_url }}
+```
+
+This block creates a manual approval step. The workflow pauses at the "Deploy to Prod" job, and a reviewer must click "Review deployments" and approve before the deployment proceeds.
+
+**Why manual approval for prod?**
+- Prevents accidental deployments
+- Allows review of changes before production
+- Provides audit trail of who approved what
+- Even for solo projects, it enforces a "pause and think" moment
 
 ### Workflow Gating Benefits
 

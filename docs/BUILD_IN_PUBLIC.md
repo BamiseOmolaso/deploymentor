@@ -407,6 +407,40 @@ Next post: what's next for v2?
 
 ---
 
+## POST 29 — Three-Environment Lifecycle: Dev → Staging → Prod
+
+I had a single environment. Every push to main deployed to prod. That's fine for a solo project, but it's not how real systems work. I needed a proper dev → staging → prod lifecycle.
+
+The setup: three separate Terraform environments, each with its own state file. Dev auto-deploys on every push. Staging deploys manually or via `staging-*` tags. Prod deploys manually or via `v*` tags, never on push.
+
+The tricky part: per-environment state files. I moved from a single `deploymentor/terraform.tfstate` to `deploymentor/dev/terraform.tfstate`, `deploymentor/staging/terraform.tfstate`, `deploymentor/prod/terraform.tfstate`. Each environment directory has its own backend config pointing to the right state key.
+
+I created three workflows: deploy-dev.yml (auto on push), deploy-staging.yml (manual/tag), deploy-prod.yml (manual/tag with approval). Each workflow runs smoke tests after deployment. Prod workflow also verifies staging is healthy before deploying.
+
+The result: fast iteration in dev, validation in staging, controlled releases to prod. No more accidental prod deployments from a random push.
+
+Next post: why prod needs manual approval even when you're solo.
+
+---
+
+## POST 30 — Manual Approval Gate: Why Prod Needs a Pause Button
+
+I added a manual approval gate to prod deployments. Even though I'm the only developer. Why? Because mistakes happen when you're moving fast.
+
+The approval gate uses GitHub Environments. The workflow pauses at the "Deploy to Prod" job. GitHub shows a "Review deployments" button. You click it, review what's about to deploy, then approve or reject.
+
+It's not about permission. It's about forcing a pause. Before prod deploys, you see exactly what's changing. You can verify staging is healthy. You can check the commit message. You can think "is this really ready?"
+
+Without the gate, a typo in a commit message could trigger a prod deploy. A misconfigured workflow could deploy on the wrong branch. A rushed fix could break production. The approval gate stops all of that.
+
+Even for solo projects, it's worth it. It enforces a "pause and think" moment. It creates an audit trail. It prevents "oops, I didn't mean to deploy that" moments.
+
+The setup is manual in GitHub UI (environments, reviewers, protection rules). The workflow code just references the environment. But once it's set up, every prod deployment requires explicit approval.
+
+Next post: what's next for v2?
+
+---
+
 ## Technical Details
 
 **Tech Stack:**
@@ -430,8 +464,9 @@ Next post: what's next for v2?
 **Stats:**
 - 51+ commits documenting the journey
 - 54+ tests passing
-- 28 distinct issues encountered and resolved
+- 30 distinct issues encountered and resolved
 - Real workflows being analyzed in production
 - CI/CD workflow gating implemented
 - Terraform backend modernized (use_lockfile)
 - Path normalization for API Gateway trailing slash
+- Three-environment lifecycle (dev/staging/prod) with manual approval gate

@@ -304,7 +304,8 @@ class WorkflowAnalyzer:
         error_message = None
         if logs:
             # Step 1: Search for step marker in log content
-            # GitHub step markers look like "##[group]Run <step name>" or contain step name with timestamp
+            # GitHub step markers look like "##[group]Run <step name>"
+            # or contain step name with timestamp
             step_marker_found = False
             step_start_line = -1
             relevant_log_content = None
@@ -365,7 +366,8 @@ class WorkflowAnalyzer:
                                 break
                         # Or check for error_type specific keywords
                         elif error_keywords and any(
-                            keyword.lower() in line.lower() for keyword in error_keywords
+                            keyword.lower() in line.lower()
+                            for keyword in error_keywords
                         ):
                             if step_name.lower() in log_content.lower():
                                 error_message = line.strip()

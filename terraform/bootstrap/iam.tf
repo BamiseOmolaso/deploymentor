@@ -82,131 +82,131 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [
-      # Lambda permissions — scope to deploymentor-* functions only
+      # Statement 1 — Lambda (function operations)
       {
         Effect = "Allow"
         Action = [
+          "lambda:CreateFunction",
           "lambda:UpdateFunctionCode",
           "lambda:UpdateFunctionConfiguration",
           "lambda:GetFunction",
           "lambda:GetFunctionConfiguration",
+          "lambda:GetPolicy",
+          "lambda:ListVersionsByFunction",
           "lambda:PublishVersion",
-          "lambda:CreateFunction",
-          "lambda:DeleteFunction",
           "lambda:AddPermission",
           "lambda:RemovePermission",
-          "lambda:GetPolicy",
-          "lambda:CreateAlias",
-          "lambda:UpdateAlias",
-          "lambda:GetAlias",
-          "lambda:ListAliases",
-          "lambda:DeleteAlias",
-          "lambda:ListVersionsByFunction", # Required for versioning and alias management
+          "lambda:DeleteFunction",
+          "lambda:GetFunctionCodeSigningConfig",
+          "lambda:PutFunctionConcurrency",
+          "lambda:DeleteFunctionConcurrency",
+          "lambda:GetFunctionConcurrency",
+          "lambda:TagResource",
+          "lambda:UntagResource",
+          "lambda:ListTags",
         ]
         Resource = "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:deploymentor-*"
       },
-      # Lambda alias permissions (for rollback support)
+      # Statement 2 — Lambda alias
       {
         Effect = "Allow"
         Action = [
-          "lambda:GetAlias",
-          "lambda:ListAliases",
+          "lambda:CreateAlias",
           "lambda:UpdateAlias",
+          "lambda:GetAlias",
+          "lambda:DeleteAlias",
+          "lambda:ListAliases",
         ]
-        Resource = "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:deploymentor-*:live"
+        Resource = "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:deploymentor-*"
       },
-      # IAM permissions — scope to deploymentor-* roles only (for Lambda execution roles)
-      # NOTE: This does NOT include permissions to modify the GitHub Actions role itself
-      {
-        Effect = "Allow"
-        Action = [
-          "iam:GetRole",
-          "iam:CreateRole",
-          "iam:DeleteRole",
-          "iam:AttachRolePolicy",
-          "iam:DetachRolePolicy",
-          "iam:PutRolePolicy",
-          "iam:DeleteRolePolicy",
-          "iam:GetRolePolicy",
-          "iam:PassRole",
-          "iam:ListRolePolicies",
-          "iam:ListAttachedRolePolicies",
-          "iam:TagRole",                     # Required for tagging Lambda execution roles
-          "iam:UntagRole",                   # Required for untagging Lambda execution roles
-          "iam:ListInstanceProfilesForRole", # Required for role management
-        ]
-        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/deploymentor-*-execution-role"
-      },
-      # Logs — scope to deploymentor log groups only
+      # Statement 3 — CloudWatch Logs
+      # DescribeLogGroups requires Resource = "*" — no resource-level support in AWS
       {
         Effect = "Allow"
         Action = [
           "logs:CreateLogGroup",
           "logs:DeleteLogGroup",
-          "logs:PutRetentionPolicy",
-          "logs:DeleteRetentionPolicy", # Required for removing retention policies
           "logs:DescribeLogGroups",
-          "logs:ListTagsLogGroup", # Required for reading log group tags
-          "logs:TagLogGroup",      # Required for tagging log groups
-          "logs:UntagLogGroup",    # Required for untagging log groups
+          "logs:PutRetentionPolicy",
+          "logs:DeleteRetentionPolicy",
+          "logs:ListTagsLogGroup",
+          "logs:TagLogGroup",
+          "logs:UntagLogGroup",
+          "logs:ListTagsForResource",
+          "logs:TagResource",
+          "logs:CreateLogDelivery",
+          "logs:PutResourcePolicy",
+          "logs:DescribeResourcePolicies",
         ]
-        Resource = [
-          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/deploymentor-*",
-          "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/apigateway/deploymentor-*",
-        ]
+        Resource = "*"
       },
-      # CloudWatch Alarms — scope to deploymentor alarms only
+      # Statement 4 — CloudWatch Alarms
       {
         Effect = "Allow"
         Action = [
-          "cloudwatch:PutMetricAlarm",      # Required for creating CloudWatch alarms
-          "cloudwatch:DeleteAlarms",        # Required for deleting CloudWatch alarms
-          "cloudwatch:DescribeAlarms",      # Required for reading alarm configuration
-          "cloudwatch:ListTagsForResource", # Required for reading alarm tags
-          "cloudwatch:TagResource",         # Required for tagging alarms
-          "cloudwatch:UntagResource",       # Required for untagging alarms
+          "cloudwatch:PutMetricAlarm",
+          "cloudwatch:DeleteAlarms",
+          "cloudwatch:DescribeAlarms",
+          "cloudwatch:ListTagsForResource",
+          "cloudwatch:TagResource",
+          "cloudwatch:UntagResource",
         ]
         Resource = "arn:aws:cloudwatch:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:alarm:deploymentor-*"
       },
-      # API Gateway — scope to deploymentor APIs only
-      # HTTP API v2 uses REST-style permissions with wildcards
+      # Statement 5 — SNS
+      {
+        Effect = "Allow"
+        Action = [
+          "sns:CreateTopic",
+          "sns:DeleteTopic",
+          "sns:GetTopicAttributes",
+          "sns:SetTopicAttributes",
+          "sns:TagResource",
+          "sns:ListTagsForResource",
+          "sns:UntagResource",
+          "sns:Subscribe",
+          "sns:Unsubscribe",
+          "sns:ListSubscriptionsByTopic",
+        ]
+        Resource = "arn:aws:sns:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:deploymentor-*"
+      },
+      # Statement 6 — IAM (lambda execution role only)
+      # NOTE: This does NOT include permissions to modify the GitHub Actions role itself
+      {
+        Effect = "Allow"
+        Action = [
+          "iam:CreateRole",
+          "iam:DeleteRole",
+          "iam:GetRole",
+          "iam:PassRole",
+          "iam:PutRolePolicy",
+          "iam:DeleteRolePolicy",
+          "iam:GetRolePolicy",
+          "iam:ListRolePolicies",
+          "iam:TagRole",
+          "iam:UntagRole",
+          "iam:ListAttachedRolePolicies",
+          "iam:ListInstanceProfilesForRole",
+          "iam:UpdateRoleDescription",
+          "iam:UpdateAssumeRolePolicy",
+        ]
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/deploymentor-*"
+      },
+      # Statement 7 — API Gateway
+      # API Gateway uses HTTP verbs — no resource-level ARN filtering
       {
         Effect = "Allow"
         Action = [
           "apigateway:GET",
           "apigateway:POST",
           "apigateway:PUT",
-          "apigateway:DELETE",
           "apigateway:PATCH",
+          "apigateway:DELETE",
+          "apigateway:TagResource",
         ]
-        Resource = [
-          "arn:aws:apigateway:${data.aws_region.current.name}::/apis/*",
-          "arn:aws:apigateway:${data.aws_region.current.name}::/apis",
-          "arn:aws:apigateway:${data.aws_region.current.name}::/apis/*/stages/*",
-          "arn:aws:apigateway:${data.aws_region.current.name}::/apis/*/integrations/*",
-          "arn:aws:apigateway:${data.aws_region.current.name}::/apis/*/routes/*",
-        ]
+        Resource = "*"
       },
-      # CloudWatch Metrics — scope to deploymentor metrics only
-      # Note: Some CloudWatch actions require Resource = "*" due to service limitations
-      {
-        Effect = "Allow"
-        Action = [
-          "cloudwatch:PutMetricData",
-          "cloudwatch:GetMetricStatistics",
-          "cloudwatch:ListMetrics",
-        ]
-        Resource = [
-          "arn:aws:cloudwatch:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:metric/deploymentor-*/*",
-          "arn:aws:cloudwatch:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:metric/AWS/Lambda/deploymentor-*/*",
-        ]
-        Condition = {
-          StringEquals = {
-            "cloudwatch:namespace" = "AWS/Lambda"
-          }
-        }
-      },
-      # SSM — scope to deploymentor parameters only
+      # Statement 8 — SSM
       {
         Effect = "Allow"
         Action = [
@@ -216,65 +216,50 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "ssm:PutParameter",
           "ssm:DeleteParameter",
           "ssm:DescribeParameters",
+          "ssm:AddTagsToResource",
+          "ssm:ListTagsForResource",
         ]
         Resource = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/deploymentor/*"
       },
-      # SNS — scope to deploymentor topics only (for CloudWatch alarms)
-      {
-        Effect = "Allow"
-        Action = [
-          "sns:CreateTopic",
-          "sns:GetTopicAttributes",
-          "sns:SetTopicAttributes",
-          "sns:TagResource",
-          "sns:UntagResource", # Required for untagging SNS topics
-          "sns:ListTagsForResource",
-          "sns:DeleteTopic",
-        ]
-        Resource = [
-          "arn:aws:sns:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:deploymentor-*",
-        ]
-      },
-      # Budgets — scope to deploymentor budgets only
-      {
-        Effect = "Allow"
-        Action = [
-          "budgets:ModifyBudget",
-          "budgets:ViewBudget",
-          "budgets:DeleteBudget",
-          "budgets:CreateBudget",
-          "budgets:DescribeBudgets", # Required for listing and reading budgets
-          "budgets:TagResource",
-          "budgets:UntagResource",
-          "budgets:ListTagsForResource",
-        ]
-        Resource = [
-          "arn:aws:budgets::${data.aws_caller_identity.current.account_id}:budget/deploymentor-*",
-        ]
-      },
-      # S3 state — scope to deploymentor state bucket only
+      # Statement 9 — S3 (Terraform state)
       {
         Effect = "Allow"
         Action = [
           "s3:GetObject",
           "s3:PutObject",
-          "s3:DeleteObject", # required for use_lockfile to release .tflock files
+          "s3:DeleteObject",
           "s3:ListBucket",
+          "s3:GetBucketVersioning",
+          "s3:GetEncryptionConfiguration",
         ]
         Resource = [
           "arn:aws:s3:::deploymentor-terraform-state",
           "arn:aws:s3:::deploymentor-terraform-state/*",
         ]
       },
-      # DynamoDB state lock — scope to deploymentor locks table only
+      # Statement 10 — DynamoDB (state lock)
       {
         Effect = "Allow"
         Action = [
           "dynamodb:GetItem",
           "dynamodb:PutItem",
           "dynamodb:DeleteItem",
+          "dynamodb:DescribeTable",
         ]
         Resource = "arn:aws:dynamodb:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:table/deploymentor-terraform-locks"
+      },
+      # Statement 11 — Budgets
+      {
+        Effect = "Allow"
+        Action = [
+          "budgets:CreateBudget",
+          "budgets:ModifyBudget",
+          "budgets:DeleteBudget",
+          "budgets:ViewBudget",
+          "budgets:DescribeBudgets",
+          "budgets:ListTagsForResource",
+        ]
+        Resource = "arn:aws:budgets::${data.aws_caller_identity.current.account_id}:budget/deploymentor-*"
       },
     ]
   })

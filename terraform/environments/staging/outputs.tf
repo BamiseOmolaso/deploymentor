@@ -22,6 +22,6 @@ output "lambda_role_arn" {
 
 output "github_actions_role_arn" {
   description = "GitHub Actions IAM role ARN"
-  value       = data.aws_iam_role.github_actions.arn
+  value       = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-github-actions-role-${var.environment}"
 }
 

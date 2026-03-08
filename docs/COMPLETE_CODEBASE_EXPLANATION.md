@@ -719,18 +719,6 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
 
 **Workflow Timeouts**: All deploy workflows have a 30-minute timeout (`timeout-minutes: 30`) to prevent hanging runs from consuming resources indefinitely. If a deploy takes longer than 30 minutes, it's automatically cancelled.
 
-**Deployment Pipeline Diagram**:
-```mermaid
-flowchart LR
-    Push --> CI
-    CI -->|pass| DeployDev
-    DeployDev -->|smoke tests pass| ManualTrigger
-    ManualTrigger --> DeployStaging
-    DeployStaging -->|smoke tests pass| ManualApproval
-    ManualApproval --> DeployProd
-    DeployProd -->|smoke tests fail| AutoRollback
-```
-
 ### Environment Lifecycle
 
 **Dev Environment**:

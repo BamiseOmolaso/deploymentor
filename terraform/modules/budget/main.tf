@@ -23,8 +23,5 @@ resource "aws_budgets_budget" "this" {
     notification_type          = "FORECASTED"
     subscriber_email_addresses = [var.budget_alert_email]
   }
-
-  # Tags removed - budget tagging requires additional IAM permissions
-  # that add complexity without significant value
 }
 

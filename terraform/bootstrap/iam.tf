@@ -257,6 +257,8 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "budgets:DeleteBudget",
           "budgets:ViewBudget",
           "budgets:DescribeBudgets",
+          "budgets:TagResource",
+          "budgets:UntagResource",
           "budgets:ListTagsForResource",
         ]
         Resource = "arn:aws:budgets::${data.aws_caller_identity.current.account_id}:budget/deploymentor-*"

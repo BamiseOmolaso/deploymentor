@@ -263,6 +263,62 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         ]
         Resource = "arn:aws:budgets::${data.aws_caller_identity.current.account_id}:budget/deploymentor-*"
       },
+      # Statement 12 — S3 frontend bucket (static site)
+      {
+        Effect = "Allow"
+        Action = [
+          "s3:CreateBucket",
+          "s3:DeleteBucket",
+          "s3:GetBucketPolicy",
+          "s3:PutBucketPolicy",
+          "s3:DeleteBucketPolicy",
+          "s3:GetBucketPublicAccessBlock",
+          "s3:PutBucketPublicAccessBlock",
+          "s3:GetBucketTagging",
+          "s3:PutBucketTagging",
+          "s3:GetBucketVersioning",
+          "s3:GetEncryptionConfiguration",
+          "s3:GetBucketAcl",
+          "s3:GetBucketCORS",
+          "s3:GetBucketWebsite",
+          "s3:GetBucketObjectLockConfiguration",
+          "s3:GetBucketRequestPayment",
+          "s3:GetBucketLogging",
+          "s3:GetLifecycleConfiguration",
+          "s3:GetReplicationConfiguration",
+          "s3:ListBucket",
+          "s3:PutObject",
+          "s3:GetObject",
+          "s3:DeleteObject",
+        ]
+        Resource = [
+          "arn:aws:s3:::deploymentor-frontend-*",
+          "arn:aws:s3:::deploymentor-frontend-*/*",
+        ]
+      },
+      # Statement 13 — CloudFront (invalidation + distribution management)
+      # CloudFront requires Resource = "*" — no region-specific ARN support
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudfront:CreateDistribution",
+          "cloudfront:UpdateDistribution",
+          "cloudfront:DeleteDistribution",
+          "cloudfront:GetDistribution",
+          "cloudfront:GetDistributionConfig",
+          "cloudfront:ListDistributions",
+          "cloudfront:CreateOriginAccessControl",
+          "cloudfront:GetOriginAccessControl",
+          "cloudfront:UpdateOriginAccessControl",
+          "cloudfront:DeleteOriginAccessControl",
+          "cloudfront:ListOriginAccessControls",
+          "cloudfront:TagResource",
+          "cloudfront:ListTagsForResource",
+          "cloudfront:CreateInvalidation",
+          "cloudfront:GetInvalidation",
+        ]
+        Resource = "*"
+      },
     ]
   })
 }

@@ -26,3 +26,9 @@ variable "tags" {
   default     = {}
 }
 
+variable "manage_iam" {
+  description = "Whether this module should create IAM resources (false = use data sources to reference bootstrap-managed roles)"
+  type        = bool
+  default     = true
+}
+

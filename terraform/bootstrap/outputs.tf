@@ -34,3 +34,11 @@ output "backend_config_instructions" {
   EOT
 }
 
+output "github_actions_role_arns" {
+  description = "ARNs of GitHub Actions IAM roles for each environment"
+  value = {
+    for env in ["dev", "staging", "prod"] :
+    env => try(aws_iam_role.github_actions[env].arn, "not_created")
+  }
+}
+

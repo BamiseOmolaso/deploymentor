@@ -1,5 +1,7 @@
-# GitHub OIDC Provider for GitHub Actions
-# This module creates the IAM role and policies for GitHub Actions to deploy via OIDC
+# IAM Roles and Policies for GitHub Actions
+# This is managed separately from application infrastructure to avoid
+# the chicken-and-egg problem where the role needs permission to update itself.
+# Run this bootstrap with admin credentials locally, not through GitHub Actions.
 
 data "aws_caller_identity" "current" {}
 data "aws_region" "current" {}
@@ -29,14 +31,14 @@ data "aws_iam_openid_connect_provider" "github" {
 
 locals {
   oidc_provider_arn = var.create_oidc_provider ? aws_iam_openid_connect_provider.github[0].arn : data.aws_iam_openid_connect_provider.github[0].arn
+  environments      = ["dev", "staging", "prod"]
 }
 
-# IAM Role for GitHub Actions Deployment
-# Only create if manage_iam is true (bootstrap pattern)
+# IAM Roles for GitHub Actions (one per environment)
 resource "aws_iam_role" "github_actions" {
-  count = var.manage_iam ? 1 : 0
+  for_each = toset(local.environments)
 
-  name = "${var.project_name}-github-actions-role-${var.environment}"
+  name = "${var.project_name}-github-actions-role-${each.value}"
 
   assume_role_policy = jsonencode({
     Version = "2012-10-17"
@@ -62,30 +64,20 @@ resource "aws_iam_role" "github_actions" {
   tags = merge(
     var.tags,
     {
-      Name        = "${var.project_name}-github-actions-role-${var.environment}"
-      Environment = var.environment
-      ManagedBy   = "Terraform"
+      Name        = "${var.project_name}-github-actions-role-${each.value}"
+      Environment = each.value
+      ManagedBy   = "Terraform-Bootstrap"
     }
   )
-
-  lifecycle {
-    ignore_changes = [name]
-  }
 }
 
-# Data source for bootstrap-managed IAM role (when manage_iam is false)
-data "aws_iam_role" "github_actions" {
-  count = var.manage_iam ? 0 : 1
-  name  = "${var.project_name}-github-actions-role-${var.environment}"
-}
-
-# Policy for GitHub Actions - Terraform and Lambda deployment permissions
-# Only create if manage_iam is true (bootstrap pattern)
+# Comprehensive policy for GitHub Actions deployment
+# Includes ALL permissions needed for current and planned resources
 resource "aws_iam_role_policy" "github_actions_deploy" {
-  count = var.manage_iam ? 1 : 0
+  for_each = toset(local.environments)
 
-  name = "${var.project_name}-github-actions-deploy-${var.environment}"
-  role = aws_iam_role.github_actions[0].id
+  name = "${var.project_name}-github-actions-deploy-${each.value}"
+  role = aws_iam_role.github_actions[each.value].id
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -104,10 +96,26 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "lambda:AddPermission",
           "lambda:RemovePermission",
           "lambda:GetPolicy",
+          "lambda:CreateAlias",
+          "lambda:UpdateAlias",
+          "lambda:GetAlias",
+          "lambda:ListAliases",
+          "lambda:DeleteAlias",
         ]
         Resource = "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:deploymentor-*"
       },
-      # IAM permissions — scope to deploymentor-* roles only
+      # Lambda alias permissions (for rollback support)
+      {
+        Effect = "Allow"
+        Action = [
+          "lambda:GetAlias",
+          "lambda:ListAliases",
+          "lambda:UpdateAlias",
+        ]
+        Resource = "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:deploymentor-*:live"
+      },
+      # IAM permissions — scope to deploymentor-* roles only (for Lambda execution roles)
+      # NOTE: This does NOT include permissions to modify the GitHub Actions role itself
       {
         Effect = "Allow"
         Action = [
@@ -123,7 +131,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
         ]
-        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/deploymentor-*"
+        Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/deploymentor-*-execution-role"
       },
       # Logs — scope to deploymentor log groups only
       {
@@ -200,13 +208,14 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "arn:aws:sns:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:deploymentor-*",
         ]
       },
-      # Budgets — scope to deploymentor budgets only
+      # Budgets — scope to deploymentor budgets only (includes CreateBudget)
       {
         Effect = "Allow"
         Action = [
           "budgets:ModifyBudget",
           "budgets:ViewBudget",
           "budgets:DeleteBudget",
+          "budgets:CreateBudget",
         ]
         Resource = [
           "arn:aws:budgets::${data.aws_caller_identity.current.account_id}:budget/deploymentor-*",

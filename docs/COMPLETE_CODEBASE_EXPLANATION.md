@@ -705,6 +705,10 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
 
 **All jobs must pass** for CI to be considered successful.
 
+**Test Coverage**: CI enforces a minimum coverage threshold of 50% (`--cov-fail-under=50`). Current coverage is 71%, providing a safety margin. This prevents regressions that reduce test coverage below acceptable levels.
+
+**Workflow Timeouts**: All deploy workflows have a 30-minute timeout (`timeout-minutes: 30`) to prevent hanging runs from consuming resources indefinitely. If a deploy takes longer than 30 minutes, it's automatically cancelled.
+
 ### Environment Lifecycle
 
 **Dev Environment**:
@@ -1387,6 +1391,8 @@ Three alarms are configured for each Lambda function (enabled by default via `en
 **SNS Topic**: Created automatically for each environment. Can be extended with email subscriptions or other integrations.
 
 **Configuration**: Alarms can be disabled per environment by setting `enable_alarms = false` in the Lambda module.
+
+**SNS Topic Management**: The SNS topic is created and managed by Terraform. If a topic becomes tainted in Terraform state (e.g., from a failed apply), the cleanest resolution is to delete it from AWS and remove it from Terraform state, then let Terraform recreate it fresh. This avoids permission issues that can occur when Terraform tries to destroy and recreate a tainted resource in the same apply.
 
 ---
 

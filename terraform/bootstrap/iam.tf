@@ -208,7 +208,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "arn:aws:sns:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:deploymentor-*",
         ]
       },
-      # Budgets — scope to deploymentor budgets only (includes CreateBudget and TagResource)
+      # Budgets — scope to deploymentor budgets only
       {
         Effect = "Allow"
         Action = [
@@ -217,6 +217,8 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "budgets:DeleteBudget",
           "budgets:CreateBudget",
           "budgets:TagResource",
+          "budgets:UntagResource",
+          "budgets:ListTagsForResource",
         ]
         Resource = [
           "arn:aws:budgets::${data.aws_caller_identity.current.account_id}:budget/deploymentor-*",

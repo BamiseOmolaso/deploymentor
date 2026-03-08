@@ -24,6 +24,7 @@ resource "aws_budgets_budget" "this" {
     subscriber_email_addresses = [var.budget_alert_email]
   }
 
-  tags = var.tags
+  # Tags removed - budget tagging requires additional IAM permissions
+  # that add complexity without significant value
 }
 

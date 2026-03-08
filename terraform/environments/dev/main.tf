@@ -65,21 +65,11 @@ module "api_gateway" {
   }
 }
 
-# GitHub OIDC module (for CI/CD)
-# Uses data sources to reference bootstrap-managed IAM roles
-# The IAM roles are created by terraform/bootstrap/iam.tf, not here
-module "github_oidc" {
-  source = "../../modules/github_oidc"
-
-  project_name         = var.project_name
-  environment          = var.environment
-  github_repo          = var.github_repo != "" ? var.github_repo : "BamiseOmolaso/deploymentor"
-  create_oidc_provider = var.create_oidc_provider
-  manage_iam           = false # IAM is managed by bootstrap, not deploy workflows
-
-  tags = {
-    Name = "${var.project_name}-github-oidc-${var.environment}"
-  }
+# GitHub OIDC IAM role (managed by bootstrap, referenced via data source)
+# The IAM role is created by terraform/bootstrap/iam.tf, not here
+# This prevents the deploy workflow from trying to manage its own IAM permissions
+data "aws_iam_role" "github_actions" {
+  name = "${var.project_name}-github-actions-role-${var.environment}"
 }
 
 # Budget module (for cost monitoring)

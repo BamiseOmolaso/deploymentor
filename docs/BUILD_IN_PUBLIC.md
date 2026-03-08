@@ -1,5 +1,5 @@
 # Deploymentor: Build in Public Post Series
-# Total posts: 45
+# Total posts: 46
 # Platform: X / LinkedIn
 # Project: https://github.com/BamiseOmolaso/deploymentor
 
@@ -695,7 +695,25 @@ The fix: Delete the topic from AWS, remove it from Terraform state, let Terrafor
 
 The lesson: Tainted resources are Terraform's way of saying "this resource is suspect, replace it." Sometimes the fastest fix is to delete and recreate. Sometimes you untaint. Know when to use each approach.
 
-Next post: what's next for v2.
+Next post: the IAM bootstrapping anti-pattern.
+
+---
+
+## POST 46 — The IAM Bootstrapping Anti-Pattern: When Your Role Can't Update Itself
+
+Started today with PR #1 merge (docs update). Then hit the reserved concurrency issue — dev Lambda couldn't deploy because setting reserved_concurrent_executions to 10 would drop the account's unreserved concurrency below AWS's minimum of 10. Fixed by setting dev to -1 (unreserved).
+
+Ran a full 30-item DevOps audit. Maturity score: 7/10. Implemented 8 critical fixes in one commit and deployed to dev. Then hit the SNS taint incident — a previous failed apply left the SNS topic tainted in Terraform state. Fix was to delete the topic from AWS, remove it from state, and let Terraform recreate it cleanly.
+
+But the real problem was deeper. Every time I added a new AWS service (SNS, then budgets), the deploy failed with a missing permission error. The GitHub Actions role needed the permission to apply, but the permission wasn't live until after the apply succeeded. Chicken and egg.
+
+The root cause: the GitHub Actions role was managing its own permissions through the deploy workflow. I kept manually patching IAM via CLI to unblock applies, which created drift and wasn't sustainable.
+
+Refactored to terraform/bootstrap/. IAM is now managed separately by a local admin run. Deploy workflows no longer touch IAM at all. Added three improvements: cost budget alerts at $5/month, Mermaid architecture diagrams in the codebase explanation, and automated prod rollback on smoke test failure.
+
+End state: bootstrap applied cleanly, dev deploy green, all features live. No more manual IAM patches. The pattern works.
+
+Next post: what v2 will add.
 
 ---
 
@@ -720,9 +738,9 @@ Next post: what's next for v2.
 **Repository:** [github.com/BamiseOmolaso/deploymentor](https://github.com/BamiseOmolaso/deploymentor)
 
 **Stats:**
-- 65+ commits documenting the journey
+- 70+ commits documenting the journey
 - 54+ tests passing (71% coverage)
-- 43+ distinct issues encountered and resolved
+- 45+ distinct issues encountered and resolved
 - Real workflows being analyzed in production
 - CI/CD workflow gating implemented
 - Terraform backend modernized (use_lockfile)
@@ -736,3 +754,6 @@ Next post: what's next for v2.
 - CloudWatch alarms configured for errors, duration, and throttles
 - Retry logic added to GitHub API client
 - All 8 audit fixes deployed and verified in dev environment
+- Bootstrap IAM pattern implemented (IAM managed separately from deploy workflows)
+- Cost budget alerts configured at $5/month
+- Lambda versioning and automated prod rollback implemented

@@ -599,6 +599,9 @@ backend "s3" {
 - **Reserved Concurrency**: 
   - **Dev**: `-1` (unreserved) - Prevents account-level concurrency limit errors
   - **Staging/Prod**: `10` (default) - Reserved capacity for predictable performance
+- **Versioning**: Enabled (`publish = true`) - Creates a new version on each deployment
+- **Live Alias**: `aws_lambda_alias` named `live` points to the latest deployed version
+- **Rollback Support**: Prod workflow includes automated rollback step that reverts the `live` alias to the previous version if smoke tests fail after deployment
 - **Layers**: Lambda Layer with `requests` library
 - **Environment variables**: `GITHUB_TOKEN_SSM_PARAM`, `ENVIRONMENT`, `API_KEY_SSM_PARAM`
 
@@ -646,6 +649,43 @@ backend "s3" {
 - CloudWatch: Create log groups
 - IAM: Read roles/policies (for imports)
 - **Note**: `s3:DeleteObject` is required for `use_lockfile` to release state locks
+
+### Bootstrap (`terraform/bootstrap/`)
+
+**What it is**: Separate Terraform configuration that manages IAM roles and policies for GitHub Actions. This runs **locally by an admin with AWS credentials**, not through CI/CD.
+
+**Why it exists**: The GitHub Actions IAM role cannot modify its own permissions. This creates a chicken-and-egg problem: when Terraform adds a new AWS service (SNS, budgets, Lambda aliases), the first apply fails because the permission isn't live yet. The bootstrap pattern solves this by managing IAM separately from application infrastructure.
+
+**The Pattern**:
+1. **Bootstrap once**: Run `terraform/bootstrap/` locally with admin credentials to create IAM roles/policies with all required permissions
+2. **Deploy forever**: Deploy workflows reference IAM roles via data sources and never modify them
+3. **Result**: No more manual IAM patches, no drift, clean separation of concerns
+
+**When to re-run bootstrap**: Only when adding new AWS services that need new IAM permissions. The bootstrap policy includes permissions for:
+- Lambda (functions, versions, aliases)
+- API Gateway (HTTP APIs, stages, integrations, routes)
+- CloudWatch (logs, metrics, alarms)
+- SSM Parameter Store
+- SNS (for CloudWatch alarm notifications)
+- Budgets (cost monitoring)
+- S3 (Terraform state)
+- DynamoDB (Terraform state locks)
+- IAM (for Lambda execution roles only, NOT the GitHub Actions role itself)
+
+**First-time setup** (importing existing roles):
+If IAM roles already exist in AWS (created before bootstrap), import them into bootstrap state:
+```bash
+cd terraform/bootstrap
+terraform import 'aws_iam_role.github_actions["dev"]' deploymentor-github-actions-role-dev
+terraform import 'aws_iam_role.github_actions["prod"]' deploymentor-github-actions-role-prod
+terraform import 'aws_iam_role_policy.github_actions_deploy["dev"]' deploymentor-github-actions-role-dev:deploymentor-github-actions-deploy-dev
+terraform import 'aws_iam_role_policy.github_actions_deploy["prod"]' deploymentor-github-actions-role-prod:deploymentor-github-actions-deploy-prod
+terraform import 'aws_iam_role_policy.github_actions_deploy["staging"]' deploymentor-github-actions-role-staging:deploymentor-github-actions-deploy-staging
+```
+
+**Bootstrap outputs**: Uses `try()` to handle partial imports gracefully, allowing bootstrap to work even if some roles don't exist yet.
+
+**Known pattern**: When adding a new AWS service, add its permissions to `terraform/bootstrap/iam.tf` and run bootstrap locally before the first deploy. Both SNS and budgets required this pattern.
 
 ---
 
@@ -714,6 +754,10 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
    - Terraform validation
 
 **All jobs must pass** for CI to be considered successful.
+
+**Workflow Timeouts**: All deploy workflows have a 30-minute timeout (`timeout-minutes: 30`) to prevent hanging runs from consuming resources indefinitely. If a deploy takes longer than 30 minutes, it's automatically cancelled.
+
+**Coverage Threshold**: CI enforces a minimum coverage threshold of 50% (`--cov-fail-under=50`). Current coverage is 71%, providing a safety margin. This prevents regressions that reduce test coverage below acceptable levels.
 
 ### Environment Lifecycle
 
@@ -995,13 +1039,21 @@ Deployment complete ✅
 - SSM Parameter Store: Read `/deploymentor/*` parameters only
 
 **GitHub Actions Role**:
-- Lambda: Create, update, get function (scoped to `deploymentor-*` resources)
-- API Gateway: Create, update, get API (scoped to `deploymentor-*` resources)
-- S3: Read/write/delete state bucket (including `.tflock` files for state locking)
-- CloudWatch: Create log groups, PutMetricData (scoped to `deploymentor-*` metrics only)
-- IAM: Read (for imports)
+- **Managed by**: `terraform/bootstrap/iam.tf` (not deploy workflows)
+- **Scope**: All permissions scoped to `deploymentor-*` resources only
+- **No wildcards**: No `Resource = "*"` permissions remain (except where AWS requires it: `logs:DescribeLogGroups` and `apigateway` actions have no resource-level support)
+- **Permissions include**:
+  - Lambda: Create, update, get function, versions, aliases (scoped to `deploymentor-*` functions)
+  - API Gateway: Full CRUD operations (HTTP API v2 uses HTTP verbs, no resource-level ARN filtering)
+  - S3: Read/write/delete state bucket (including `.tflock` files for state locking)
+  - CloudWatch: Create log groups, PutMetricData, PutMetricAlarm, DeleteAlarms (scoped to `deploymentor-*` resources)
+  - SSM: Read/write parameters (scoped to `/deploymentor/*`)
+  - SNS: Create, update, delete topics (scoped to `deploymentor-*` topics)
+  - Budgets: Create, modify, delete budgets (scoped to `deploymentor-*` budgets)
+  - IAM: Create, update, delete Lambda execution roles only (NOT the GitHub Actions role itself)
+  - DynamoDB: State lock operations (scoped to `deploymentor-terraform-locks` table)
 - **Note**: `s3:DeleteObject` is required for `use_lockfile` to release state locks
-- **Security**: All permissions are scoped to `deploymentor-*` resources only (no wildcards on resource ARNs)
+- **Security**: IAM is managed outside the deploy pipeline intentionally to prevent the bootstrapping problem
 
 ### Network Security
 
@@ -1399,6 +1451,16 @@ Three alarms are configured for each Lambda function (enabled by default via `en
 **Configuration**: Alarms can be disabled per environment by setting `enable_alarms = false` in the Lambda module.
 
 **SNS Topic Management**: The SNS topic is created and managed by Terraform. If a topic becomes tainted in Terraform state (e.g., from a failed apply), the cleanest resolution is to delete it from AWS and remove it from Terraform state, then let Terraform recreate it fresh. This avoids permission issues that can occur when Terraform tries to destroy and recreate a tainted resource in the same apply.
+
+### AWS Budget Alerts
+
+**Budget Configuration**:
+- **Monthly limit**: $5 USD
+- **Alert thresholds**:
+  - 80% actual ($4) — alerts when actual spend reaches $4
+  - 100% forecasted ($5) — alerts when forecasted spend reaches $5
+- **Alert email**: Configured via GitHub secret `BUDGET_ALERT_EMAIL` (passed to Terraform via `-var="budget_alert_email=${{ secrets.BUDGET_ALERT_EMAIL }}"`)
+- **Budget tagging**: Intentionally omitted to reduce IAM complexity (budget tagging requires additional permissions that add complexity without significant value)
 
 ---
 

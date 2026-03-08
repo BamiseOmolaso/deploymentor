@@ -514,6 +514,62 @@ Error: Process completed with exit code 1.
 - Test workflow triggers with small commits
 - Document which paths trigger deployments
 
+### Error 19: PR Checks Not Appearing Automatically
+
+**Error Message:**
+- PR created but CI checks don't appear on the PR
+- No workflow run triggered when PR is opened
+- Checks only appear after manual trigger
+
+**Root Cause:**
+- CI workflow missing explicit `pull_request` event types
+- Missing `checks: write` permission (required for status checks to appear on PRs)
+- Missing `pull-requests: write` permission (required for PR comments and status updates)
+- Workflow file changes in PR branch don't trigger until merged to base branch
+
+**Solution:**
+1. **Add explicit pull_request event types** to `.github/workflows/ci.yml`:
+   ```yaml
+   pull_request:
+     types: [opened, synchronize, reopened, ready_for_review]
+     branches: [main, staging, prod]
+     paths:
+       - 'src/**'
+       - 'tests/**'
+       - 'terraform/**'
+       - 'scripts/**'
+       - 'requirements*.txt'
+       - '.github/workflows/**'
+   ```
+
+2. **Add workflow_dispatch for manual triggering**:
+   ```yaml
+   workflow_dispatch:
+   ```
+
+3. **Update permissions** to include write access:
+   ```yaml
+   permissions:
+     contents: read
+     pull-requests: write  # Required for PR status checks
+     checks: write         # Required for checks to appear on PRs
+   ```
+
+4. **Merge the workflow changes to main** - Workflow file changes in PR branches don't trigger until merged to the base branch
+
+**Verification:**
+- Create a new PR with code changes (e.g., modify a test file)
+- CI should trigger automatically within seconds
+- All checks should appear on the PR: Lint & Format Check, Run Tests, Security Scan, Terraform Validate
+
+**Prevention:**
+- Always include explicit event types for `pull_request` triggers
+- Ensure permissions include `checks: write` and `pull-requests: write`
+- Test workflow triggers with new PRs after making workflow changes
+- Document workflow trigger configuration in project documentation
+
+**Note**: If workflow file changes are in a PR branch, that PR won't trigger automatically until the workflow changes are merged to the base branch. This is expected GitHub Actions behavior.
+
 ---
 
 ## Security Issues
@@ -740,6 +796,6 @@ Info:      Locked by terraform plan at terraform/environments/dev
 ---
 
 **Last Updated**: March 7, 2026  
-**Total Errors Documented**: 18  
+**Total Errors Documented**: 19  
 **Status**: All errors resolved ✅
 

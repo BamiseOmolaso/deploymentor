@@ -715,10 +715,6 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
 
 **All jobs must pass** for CI to be considered successful.
 
-**Test Coverage**: CI enforces a minimum coverage threshold of 50% (`--cov-fail-under=50`). Current coverage is 71%, providing a safety margin. This prevents regressions that reduce test coverage below acceptable levels.
-
-**Workflow Timeouts**: All deploy workflows have a 30-minute timeout (`timeout-minutes: 30`) to prevent hanging runs from consuming resources indefinitely. If a deploy takes longer than 30 minutes, it's automatically cancelled.
-
 ### Environment Lifecycle
 
 **Dev Environment**:

@@ -514,62 +514,6 @@ Error: Process completed with exit code 1.
 - Test workflow triggers with small commits
 - Document which paths trigger deployments
 
-### Error 19: PR Checks Not Appearing Automatically
-
-**Error Message:**
-- PR created but CI checks don't appear on the PR
-- No workflow run triggered when PR is opened
-- Checks only appear after manual trigger
-
-**Root Cause:**
-- CI workflow missing explicit `pull_request` event types
-- Missing `checks: write` permission (required for status checks to appear on PRs)
-- Missing `pull-requests: write` permission (required for PR comments and status updates)
-- Workflow file changes in PR branch don't trigger until merged to base branch
-
-**Solution:**
-1. **Add explicit pull_request event types** to `.github/workflows/ci.yml`:
-   ```yaml
-   pull_request:
-     types: [opened, synchronize, reopened, ready_for_review]
-     branches: [main, staging, prod]
-     paths:
-       - 'src/**'
-       - 'tests/**'
-       - 'terraform/**'
-       - 'scripts/**'
-       - 'requirements*.txt'
-       - '.github/workflows/**'
-   ```
-
-2. **Add workflow_dispatch for manual triggering**:
-   ```yaml
-   workflow_dispatch:
-   ```
-
-3. **Update permissions** to include write access:
-   ```yaml
-   permissions:
-     contents: read
-     pull-requests: write  # Required for PR status checks
-     checks: write         # Required for checks to appear on PRs
-   ```
-
-4. **Merge the workflow changes to main** - Workflow file changes in PR branches don't trigger until merged to the base branch
-
-**Verification:**
-- Create a new PR with code changes (e.g., modify a test file)
-- CI should trigger automatically within seconds
-- All checks should appear on the PR: Lint & Format Check, Run Tests, Security Scan, Terraform Validate
-
-**Prevention:**
-- Always include explicit event types for `pull_request` triggers
-- Ensure permissions include `checks: write` and `pull-requests: write`
-- Test workflow triggers with new PRs after making workflow changes
-- Document workflow trigger configuration in project documentation
-
-**Note**: If workflow file changes are in a PR branch, that PR won't trigger automatically until the workflow changes are merged to the base branch. This is expected GitHub Actions behavior.
-
 ---
 
 ## Security Issues
@@ -793,9 +737,55 @@ Info:      Locked by terraform plan at terraform/environments/dev
 
 **Note**: The lock cleanup step runs before every Terraform operation in CI/CD, automatically recovering from stale locks left by local runs.
 
+### Error 20: Lambda Reserved Concurrency Exceeds Account Limit
+
+**Error Message:**
+```
+Error: PutFunctionConcurrency: Specified ReservedConcurrentExecutions decreases account's UnreservedConcurrentExecution below its minimum value of 10
+```
+
+**Root Cause:**
+- Lambda function has `reserved_concurrent_executions = 10` set
+- AWS accounts have a minimum unreserved concurrency limit of 10
+- Setting reserved concurrency to 10 for a function would reduce the account's unreserved concurrency below the minimum
+- This is especially problematic when multiple environments (dev, staging, prod) all try to reserve concurrency
+
+**Solution:**
+1. **For dev environment**: Set `reserved_concurrent_executions = -1` (unreserved):
+   ```hcl
+   module "lambda" {
+     # ... other config ...
+     reserved_concurrent_executions = -1 # No reserved limit for dev (unreserved)
+   }
+   ```
+
+2. **For staging/prod**: Keep default reserved concurrency (10) or adjust based on account limits:
+   ```hcl
+   module "lambda" {
+     # ... other config ...
+     reserved_concurrent_executions = 10 # Reserved limit for staging/prod
+   }
+   ```
+
+3. **Verify the fix**:
+   ```bash
+   aws lambda get-function-configuration \
+     --function-name deploymentor-dev \
+     --query 'ReservedConcurrentExecutions'
+   # Should return: null (unreserved)
+   ```
+
+**Prevention:**
+- Use unreserved concurrency (`-1`) for dev/test environments
+- Only reserve concurrency for production workloads that need guaranteed capacity
+- Monitor account-level concurrency limits: `aws lambda get-account-settings`
+- Calculate total reserved concurrency across all functions to ensure it doesn't exceed account limits
+
+**Note**: The value `-1` means the function uses unreserved concurrency and doesn't count toward the account's reserved concurrency pool. This is ideal for dev environments where cost control is more important than guaranteed capacity.
+
 ---
 
 **Last Updated**: March 7, 2026  
-**Total Errors Documented**: 19  
+**Total Errors Documented**: 20  
 **Status**: All errors resolved ✅
 

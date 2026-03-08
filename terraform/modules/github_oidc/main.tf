@@ -150,7 +150,10 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "cloudwatch:GetMetricStatistics",
           "cloudwatch:ListMetrics",
         ]
-        Resource = "*"
+        Resource = [
+          "arn:aws:cloudwatch:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:metric/deploymentor-*/*",
+          "arn:aws:cloudwatch:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:metric/AWS/Lambda/deploymentor-*/*",
+        ]
         Condition = {
           StringEquals = {
             "cloudwatch:namespace" = "AWS/Lambda"

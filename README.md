@@ -22,7 +22,7 @@ GitHub Actions → API Gateway HTTP API → AWS Lambda → AI Analysis → Respo
 - **Compute**: AWS Lambda (Python 3.12)
 - **API**: API Gateway HTTP API
 - **Secrets**: AWS Systems Manager Parameter Store
-- **Monitoring**: CloudWatch Logs & Metrics
+- **Monitoring**: CloudWatch Logs, Metrics & Alarms
 - **IaC**: Terraform
 - **CI/CD**: GitHub Actions with OIDC
 

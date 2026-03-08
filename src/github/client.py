@@ -11,6 +11,8 @@ import zipfile
 from typing import Any, Dict, Optional
 
 import requests
+from requests.adapters import HTTPAdapter
+from urllib3.util.retry import Retry
 
 from src.utils.ssm import get_parameter
 
@@ -46,6 +48,15 @@ class GitHubClient:
                 "Accept": "application/vnd.github.v3+json",
             }
         )
+        # Add retry logic for transient failures
+        retry = Retry(
+            total=3,
+            backoff_factor=1,
+            status_forcelist=[429, 500, 502, 503, 504],
+            allowed_methods=["GET", "POST"],
+        )
+        adapter = HTTPAdapter(max_retries=retry)
+        self.session.mount("https://", adapter)
 
     def _get_token(self) -> str:
         """
@@ -117,7 +128,7 @@ class GitHubClient:
             Workflow run data from GitHub API
         """
         url = f"{self.BASE_URL}/repos/{owner}/{repo}/actions/runs/{run_id}"
-        response = self.session.get(url)
+        response = self.session.get(url, timeout=30)
         response.raise_for_status()
         return response.json()
 
@@ -134,7 +145,7 @@ class GitHubClient:
             Jobs data from GitHub API
         """
         url = f"{self.BASE_URL}/repos/{owner}/{repo}/actions/runs/{run_id}/jobs"
-        response = self.session.get(url)
+        response = self.session.get(url, timeout=30)
         response.raise_for_status()
         return response.json()
 
@@ -151,7 +162,7 @@ class GitHubClient:
             Raw log data (zip file)
         """
         url = f"{self.BASE_URL}/repos/{owner}/{repo}/actions/runs/{run_id}/logs"
-        response = self.session.get(url)
+        response = self.session.get(url, timeout=30)
         response.raise_for_status()
         return response.content
 

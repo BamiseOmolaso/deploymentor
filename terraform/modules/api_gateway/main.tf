@@ -60,6 +60,14 @@ resource "aws_cloudwatch_log_group" "api" {
   tags = var.tags
 }
 
+# Note: HTTP API v2 doesn't support API key authentication at Gateway level
+# like REST API does. Authentication is handled in Lambda (_validate_api_key)
+# for defence in depth. If API Gateway-level auth is required, consider:
+# 1. Migrating to REST API (supports usage plans + API keys)
+# 2. Using a Lambda authorizer (adds latency)
+# 3. Using JWT authorizer (requires identity provider)
+# Current approach: Lambda-level validation is sufficient and performant.
+
 # Lambda permission for API Gateway
 resource "aws_lambda_permission" "api_gateway" {
   statement_id  = "AllowExecutionFromAPIGateway"

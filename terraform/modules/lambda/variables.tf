@@ -57,3 +57,9 @@ variable "reserved_concurrent_executions" {
   default     = 10
 }
 
+variable "enable_alarms" {
+  description = "Enable CloudWatch alarms for Lambda function"
+  type        = bool
+  default     = true
+}
+

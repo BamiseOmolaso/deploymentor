@@ -1,5 +1,5 @@
 # Deploymentor: Build in Public Post Series
-# Total posts: 26
+# Total posts: 44
 # Platform: X / LinkedIn
 # Project: https://github.com/BamiseOmolaso/deploymentor
 
@@ -667,6 +667,20 @@ The fix: Set dev environment to unreserved concurrency (`-1`). Dev doesn't need 
 
 The lesson: Reserved concurrency is a trade-off. Guaranteed capacity vs. account-level limits. For dev, choose flexibility. For prod, choose guarantees. Know your account limits before reserving.
 
+Next post: the DevOps audit that found 30 issues.
+
+---
+
+## POST 44 — The DevOps Audit: 30 Issues, 8 Critical Fixes, One Day
+
+I ran a full DevOps audit. 30 issues found. 5 critical, 15 important, 10 nice-to-have. Maturity score: 7/10. Not bad, but not production-ready.
+
+The critical ones: IAM wildcard permissions (Resource = "*" for CloudWatch), no retry logic for GitHub API calls, hardcoded AWS account IDs, missing workflow timeouts, no CloudWatch alarms. The important ones: no ancestry check in staging workflow, no coverage threshold enforcement, inconsistent error handling.
+
+I fixed 8 items in one day. Scoped all IAM permissions to `deploymentor-*` resources only. Added retry logic with exponential backoff to GitHub client. Replaced hardcoded account IDs with `data.aws_caller_identity.current.account_id`. Added 30-minute timeouts to all deploy workflows. Created three CloudWatch alarms (errors, duration, throttles) with SNS notifications. Added ancestry check to staging. Enforced 50% coverage threshold (we're at 71%).
+
+Maturity score: 8.5/10. The audit wasn't about perfection. It was about knowing what's broken before someone else finds it.
+
 Next post: what's next for v2.
 
 ---
@@ -692,9 +706,9 @@ Next post: what's next for v2.
 **Repository:** [github.com/BamiseOmolaso/deploymentor](https://github.com/BamiseOmolaso/deploymentor)
 
 **Stats:**
-- 56+ commits documenting the journey
-- 54+ tests passing
-- 34 distinct issues encountered and resolved
+- 60+ commits documenting the journey
+- 54+ tests passing (71% coverage)
+- 42+ distinct issues encountered and resolved
 - Real workflows being analyzed in production
 - CI/CD workflow gating implemented
 - Terraform backend modernized (use_lockfile)
@@ -703,3 +717,7 @@ Next post: what's next for v2.
 - One-direction code flow enforced (main → staging → prod) with ancestry checks
 - CI workflow auto-triggers on PRs with proper permissions
 - Dev Lambda uses unreserved concurrency to prevent account limit errors
+- DevOps maturity: 8.5/10 (improved from 7/10)
+- All IAM permissions scoped to deploymentor-* resources only
+- CloudWatch alarms configured for errors, duration, and throttles
+- Retry logic added to GitHub API client

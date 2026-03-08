@@ -19,6 +19,7 @@ jobs:
   verify-staging:
     name: Verify Staging
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     steps:
       - uses: actions/checkout@v4
 
@@ -35,6 +36,7 @@ jobs:
   deploy:
     name: Deploy to Prod
     runs-on: ubuntu-latest
+    timeout-minutes: 30
     needs: verify-staging
     environment:
       name: production

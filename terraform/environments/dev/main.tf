@@ -37,7 +37,7 @@ module "lambda" {
   runtime                        = "python3.12"
   timeout                        = 60
   reserved_concurrent_executions = -1 # No reserved limit for dev (unreserved)
-  layers                         = ["arn:aws:lambda:us-east-1:827327671360:layer:deploymentor-dependencies:2"]
+  layers                         = ["arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:layer:deploymentor-dependencies:2"]
 
   environment_variables = {
     ENVIRONMENT            = var.environment

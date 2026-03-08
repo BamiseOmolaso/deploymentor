@@ -46,7 +46,7 @@ module "lambda" {
   handler       = "lambda_handler.handler"
   runtime       = "python3.12"
   timeout       = 30
-  layers        = ["arn:aws:lambda:us-east-1:827327671360:layer:deploymentor-dependencies:2"] # Lambda Layer for requests
+  layers        = ["arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:layer:deploymentor-dependencies:2"] # Lambda Layer for requests
 
   environment_variables = {
     ENVIRONMENT            = var.environment

@@ -19,6 +19,7 @@
 11. [How Everything Works Together](#how-everything-works-together)
 12. [Setup and Configuration](#setup-and-configuration)
 13. [DevOps Best Practices](#devops-best-practices)
+14. [Frontend (S3 + CloudFront)](#frontend-s3--cloudfront)
 
 ---
 
@@ -1597,6 +1598,56 @@ A comprehensive DevOps best practices audit was conducted on 2026-03-07, evaluat
 - ✅ Updated Lambda packaging to include runtime dependencies for v2 readiness
 
 **Full Report**: See [DevOps Audit Report](DEVOPS_AUDIT_REPORT.md) for complete findings, explanations, and one-line fixes for all 30 identified issues.
+
+---
+
+## Frontend (S3 + CloudFront)
+
+The DeployMentor UI is a static frontend hosted on **S3 + CloudFront**. No VPC, no servers, no build step — pure static hosting that fits the existing AWS setup.
+
+### Why S3 + CloudFront
+
+- **No servers**: Same serverless philosophy as Lambda. No EC2, no containers.
+- **Terraform-managed**: Frontend bucket and distribution are defined in `terraform/modules/frontend/` and applied per environment (dev, staging, prod).
+- **Cost-effective**: S3 storage and CloudFront requests are cheap; free tier covers light usage.
+- **HTTPS**: CloudFront provides TLS and a stable URL per environment.
+
+### Frontend folder structure
+
+```
+frontend/
+├── index.html   # Single-page app: form (API key, repo, run ID), Analyze button, results area
+└── config.js    # Injected by CI/CD — holds apiUrl and environment (placeholders in repo)
+```
+
+- **index.html**: Tailwind CSS via CDN, vanilla JS. Form submits to `POST /analyze` with `owner`, `repo`, `run_id` and optional `x-api-key`. Results show status badge, workflow name, failed job/step, error type, error message (ANSI stripped), and suggestions.
+- **config.js**: Contains `CONFIG.apiUrl` and `CONFIG.environment`. In the repo these are placeholders (`REPLACE_WITH_API_URL`, `REPLACE_WITH_ENV`). CI/CD replaces them at deploy time with the environment’s API URL and env name so the frontend talks to the correct backend.
+
+### Config injection at deploy time
+
+Deploy workflows (deploy-dev, deploy-staging, deploy-prod) run after Terraform Apply:
+
+1. Read `api_gateway_url`, `s3_bucket_name`, and `cloudfront_distribution_id` from Terraform outputs.
+2. Replace placeholders in `frontend/config.js` with the real API URL and environment name.
+3. Sync `frontend/` to the environment’s S3 bucket (`aws s3 sync` with `--delete`).
+4. Create a CloudFront invalidation for `/*` so the new files are served immediately.
+
+So the repo never contains environment-specific URLs; they are injected only when deploying.
+
+### How to access the frontend
+
+After deploying an environment, the frontend URL is a Terraform output:
+
+```bash
+cd terraform/environments/dev   # or staging, prod
+terraform output frontend_url
+```
+
+Example: `https://d25uyavj67bgbp.cloudfront.net`. Open that URL in a browser, enter your API key (from SSM), repo (e.g. `owner/repo`), and a run ID, then click Analyze.
+
+### CloudFront invalidation
+
+Every deploy runs `aws cloudfront create-invalidation --distribution-id <id> --paths "/*"`. That invalidates the cache so the latest `index.html` and `config.js` are served without waiting for TTL expiry (default TTL is 300 seconds).
 
 ---
 

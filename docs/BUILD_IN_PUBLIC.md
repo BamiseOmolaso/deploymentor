@@ -1,5 +1,5 @@
 # Deploymentor: Build in Public Post Series
-# Total posts: 48
+# Total posts: 49
 # Platform: X / LinkedIn
 # Project: https://github.com/BamiseOmolaso/deploymentor
 
@@ -740,6 +740,22 @@ Evaluated alternatives. JWT authorizer: overkill for a simple API key. Lambda au
 Decision: keep auth in Lambda. It is the correct and idiomatic approach for HTTP APIs. Single Lambda invocation validates the key, rejects immediately if invalid. No double invocation, no extra cost, no complexity.
 
 Reverted to last stable state on main using git checkout. Cleaned up partial Terraform state from the failed apply. Lesson learned: always check API type (HTTP vs REST) before designing auth strategy. They have fundamentally different capability sets.
+
+Next post: what v2 will add.
+
+---
+
+## POST 49 — S3 + CloudFront Frontend: No VPC, No Servers, Just Static Hosting
+
+Added a real UI for DeployMentor. Not a dashboard — a single page: API key, repo (owner/repo), run ID, Analyze button. Result: status badge (FAILED/PASSED), workflow name, failed job, failed step, error type, error message in a scrollable code block, suggestions as a list.
+
+Why S3 + CloudFront? No VPC, no EC2, no containers. Terraform already manages Lambda, API Gateway, IAM. Adding a static site is one module: S3 bucket (block all public access), Origin Access Control, bucket policy allowing only CloudFront, CloudFront distribution with that origin. Fits the existing AWS setup perfectly. Same story: everything as code, same deploy pipeline.
+
+The frontend is pure HTML + vanilla JS + Tailwind CDN. No build step. No frameworks. Form calls POST /analyze with owner, repo, run_id and x-api-key. Response is parsed and rendered. Error messages often contain ANSI escape codes from Terraform or CLI output — we strip them before display with a simple regex so you see plain text, not terminal color codes.
+
+Config is injected at deploy time. Repo has placeholders in frontend/config.js (REPLACE_WITH_API_URL, REPLACE_WITH_ENV). CI/CD after Terraform Apply does sed to replace them with the real API URL and environment name, then syncs frontend/ to S3 and invalidates CloudFront. So no hardcoded URLs in the repo; each environment gets the right backend URL automatically.
+
+Live URL: after deploy, run `terraform output frontend_url` in the environment directory. Open that CloudFront URL, enter API key (from SSM), repo, run ID, click Analyze. Same flow as the API, but in a browser. CloudFront invalidation runs on every deploy so you always get the latest files.
 
 Next post: what v2 will add.
 

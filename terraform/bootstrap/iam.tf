@@ -101,6 +101,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "lambda:GetAlias",
           "lambda:ListAliases",
           "lambda:DeleteAlias",
+          "lambda:ListVersionsByFunction", # Required for versioning and alias management
         ]
         Resource = "arn:aws:lambda:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:function:deploymentor-*"
       },
@@ -130,6 +131,9 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "iam:PassRole",
           "iam:ListRolePolicies",
           "iam:ListAttachedRolePolicies",
+          "iam:TagRole",                     # Required for tagging Lambda execution roles
+          "iam:UntagRole",                   # Required for untagging Lambda execution roles
+          "iam:ListInstanceProfilesForRole", # Required for role management
         ]
         Resource = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/deploymentor-*-execution-role"
       },
@@ -140,14 +144,32 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "logs:CreateLogGroup",
           "logs:DeleteLogGroup",
           "logs:PutRetentionPolicy",
+          "logs:DeleteRetentionPolicy", # Required for removing retention policies
           "logs:DescribeLogGroups",
+          "logs:ListTagsLogGroup", # Required for reading log group tags
+          "logs:TagLogGroup",      # Required for tagging log groups
+          "logs:UntagLogGroup",    # Required for untagging log groups
         ]
         Resource = [
           "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/lambda/deploymentor-*",
           "arn:aws:logs:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:log-group:/aws/apigateway/deploymentor-*",
         ]
       },
+      # CloudWatch Alarms — scope to deploymentor alarms only
+      {
+        Effect = "Allow"
+        Action = [
+          "cloudwatch:PutMetricAlarm",      # Required for creating CloudWatch alarms
+          "cloudwatch:DeleteAlarms",        # Required for deleting CloudWatch alarms
+          "cloudwatch:DescribeAlarms",      # Required for reading alarm configuration
+          "cloudwatch:ListTagsForResource", # Required for reading alarm tags
+          "cloudwatch:TagResource",         # Required for tagging alarms
+          "cloudwatch:UntagResource",       # Required for untagging alarms
+        ]
+        Resource = "arn:aws:cloudwatch:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:alarm:deploymentor-*"
+      },
       # API Gateway — scope to deploymentor APIs only
+      # HTTP API v2 uses REST-style permissions with wildcards
       {
         Effect = "Allow"
         Action = [
@@ -160,9 +182,13 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         Resource = [
           "arn:aws:apigateway:${data.aws_region.current.name}::/apis/*",
           "arn:aws:apigateway:${data.aws_region.current.name}::/apis",
+          "arn:aws:apigateway:${data.aws_region.current.name}::/apis/*/stages/*",
+          "arn:aws:apigateway:${data.aws_region.current.name}::/apis/*/integrations/*",
+          "arn:aws:apigateway:${data.aws_region.current.name}::/apis/*/routes/*",
         ]
       },
-      # CloudWatch — scope to deploymentor metrics only
+      # CloudWatch Metrics — scope to deploymentor metrics only
+      # Note: Some CloudWatch actions require Resource = "*" due to service limitations
       {
         Effect = "Allow"
         Action = [
@@ -201,6 +227,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "sns:GetTopicAttributes",
           "sns:SetTopicAttributes",
           "sns:TagResource",
+          "sns:UntagResource", # Required for untagging SNS topics
           "sns:ListTagsForResource",
           "sns:DeleteTopic",
         ]
@@ -216,6 +243,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "budgets:ViewBudget",
           "budgets:DeleteBudget",
           "budgets:CreateBudget",
+          "budgets:DescribeBudgets", # Required for listing and reading budgets
           "budgets:TagResource",
           "budgets:UntagResource",
           "budgets:ListTagsForResource",

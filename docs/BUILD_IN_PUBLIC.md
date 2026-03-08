@@ -659,6 +659,25 @@ Next post: deploying these fixes and verifying they work in production.
 
 ---
 
+## POST 42 — When PR Checks Don't Appear: The Missing Permissions Problem
+
+Created a PR. Pushed code. Waited. No CI checks appeared. The workflow file existed. The trigger looked correct. But nothing happened.
+
+The problem wasn't the trigger configuration. It was the permissions. GitHub Actions needs explicit permission to write status checks to PRs. Without `checks: write`, the workflow can run, but the checks won't appear on the PR.
+
+The fix was three parts:
+1. Add explicit `pull_request` event types: `[opened, synchronize, reopened, ready_for_review]`
+2. Add `workflow_dispatch` for manual triggering
+3. Update permissions: `pull-requests: write` and `checks: write`
+
+After merging the fix to main, created a test PR. CI triggered automatically. All checks appeared. Problem solved.
+
+The lesson: GitHub Actions permissions are subtle. `contents: read` and `pull-requests: read` aren't enough. You need write permissions for checks to appear on PRs.
+
+Next post: what's next for v2.
+
+---
+
 ## Technical Details
 
 **Tech Stack:**
@@ -680,12 +699,13 @@ Next post: deploying these fixes and verifying they work in production.
 **Repository:** [github.com/BamiseOmolaso/deploymentor](https://github.com/BamiseOmolaso/deploymentor)
 
 **Stats:**
-- 51+ commits documenting the journey
+- 55+ commits documenting the journey
 - 54+ tests passing
-- 32 distinct issues encountered and resolved
+- 33 distinct issues encountered and resolved
 - Real workflows being analyzed in production
 - CI/CD workflow gating implemented
 - Terraform backend modernized (use_lockfile)
 - Path normalization for API Gateway trailing slash
 - Three-environment lifecycle (dev/staging/prod) with manual approval gate
 - One-direction code flow enforced (main → staging → prod) with ancestry checks
+- CI workflow auto-triggers on PRs with proper permissions

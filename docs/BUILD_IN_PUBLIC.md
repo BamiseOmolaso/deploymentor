@@ -1,5 +1,5 @@
 # Deploymentor: Build in Public Post Series
-# Total posts: 44
+# Total posts: 45
 # Platform: X / LinkedIn
 # Project: https://github.com/BamiseOmolaso/deploymentor
 
@@ -681,6 +681,20 @@ I fixed 8 items in one day. Scoped all IAM permissions to `deploymentor-*` resou
 
 Maturity score: 8.5/10. The audit wasn't about perfection. It was about knowing what's broken before someone else finds it.
 
+Next post: the SNS taint incident that blocked deployment.
+
+---
+
+## POST 45 — When Terraform State Gets Tainted: The SNS Topic Incident
+
+Deploy failed. Terraform plan showed "1 to destroy" for the SNS topic. The topic was marked as tainted from a previous failed apply. Terraform wanted to destroy and recreate it, but the delete would fail because DeleteTopic permission was added in the same run — too late.
+
+The diagnosis: The SNS topic existed in AWS and Terraform state, but was tainted. Terraform couldn't read its tags without ListTagsForResource permission, but couldn't update the IAM role without successfully planning. Chicken and egg.
+
+The fix: Delete the topic from AWS, remove it from Terraform state, let Terraform create it fresh. Clean slate. The topic was recreated with all CloudWatch alarms attached. Deploy passed. Smoke tests passed.
+
+The lesson: Tainted resources are Terraform's way of saying "this resource is suspect, replace it." Sometimes the fastest fix is to delete and recreate. Sometimes you untaint. Know when to use each approach.
+
 Next post: what's next for v2.
 
 ---
@@ -706,9 +720,9 @@ Next post: what's next for v2.
 **Repository:** [github.com/BamiseOmolaso/deploymentor](https://github.com/BamiseOmolaso/deploymentor)
 
 **Stats:**
-- 60+ commits documenting the journey
+- 65+ commits documenting the journey
 - 54+ tests passing (71% coverage)
-- 42+ distinct issues encountered and resolved
+- 43+ distinct issues encountered and resolved
 - Real workflows being analyzed in production
 - CI/CD workflow gating implemented
 - Terraform backend modernized (use_lockfile)
@@ -721,3 +735,4 @@ Next post: what's next for v2.
 - All IAM permissions scoped to deploymentor-* resources only
 - CloudWatch alarms configured for errors, duration, and throttles
 - Retry logic added to GitHub API client
+- All 8 audit fixes deployed and verified in dev environment

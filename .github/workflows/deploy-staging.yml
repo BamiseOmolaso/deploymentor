@@ -120,6 +120,22 @@ jobs:
         working-directory: terraform/environments/staging
         run: terraform apply -var="environment=staging" -var="budget_alert_email=${{ secrets.BUDGET_ALERT_EMAIL }}" -auto-approve tfplan
 
+      - name: Deploy Frontend to S3
+        working-directory: terraform/environments/staging
+        run: |
+          API_URL=$(terraform output -raw api_gateway_url)
+          BUCKET=$(terraform output -raw s3_bucket_name)
+          CF_DIST_ID=$(terraform output -raw cloudfront_distribution_id)
+          sed -i "s|REPLACE_WITH_API_URL|$API_URL|g" $GITHUB_WORKSPACE/frontend/config.js
+          sed -i "s|REPLACE_WITH_ENV|staging|g" $GITHUB_WORKSPACE/frontend/config.js
+          aws s3 sync $GITHUB_WORKSPACE/frontend/ s3://$BUCKET/ \
+            --delete \
+            --cache-control "max-age=300"
+          aws cloudfront create-invalidation \
+            --distribution-id $CF_DIST_ID \
+            --paths "/*"
+          echo "Frontend deployed to $(terraform output -raw frontend_url)"
+
       - name: Get API URL
         id: get-url
         working-directory: terraform/environments/staging

@@ -81,3 +81,8 @@ module "budget" {
   }
 }
 
+module "frontend" {
+  source      = "../../modules/frontend"
+  environment = var.environment
+}
+

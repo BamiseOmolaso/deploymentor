@@ -1,4 +1,4 @@
-# Dev environment outputs
+# Production environment outputs
 
 output "api_gateway_url" {
   description = "API Gateway HTTP API URL"
@@ -23,5 +23,20 @@ output "lambda_role_arn" {
 output "github_actions_role_arn" {
   description = "GitHub Actions IAM role ARN"
   value       = "arn:aws:iam::${data.aws_caller_identity.current.account_id}:role/${var.project_name}-github-actions-role-${var.environment}"
+}
+
+output "frontend_url" {
+  description = "CloudFront URL for the frontend"
+  value       = module.frontend.frontend_url
+}
+
+output "s3_bucket_name" {
+  description = "S3 bucket name for frontend files"
+  value       = module.frontend.s3_bucket_name
+}
+
+output "cloudfront_distribution_id" {
+  description = "CloudFront distribution ID for cache invalidation"
+  value       = module.frontend.cloudfront_distribution_id
 }
 

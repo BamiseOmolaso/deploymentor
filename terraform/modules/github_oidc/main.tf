@@ -173,6 +173,19 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
         ]
         Resource = "arn:aws:ssm:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:parameter/deploymentor/*"
       },
+      # SNS — scope to deploymentor topics only (for CloudWatch alarms)
+      {
+        Effect = "Allow"
+        Action = [
+          "sns:CreateTopic",
+          "sns:GetTopicAttributes",
+          "sns:SetTopicAttributes",
+          "sns:TagResource",
+        ]
+        Resource = [
+          "arn:aws:sns:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:deploymentor-*",
+        ]
+      },
       # S3 state — scope to deploymentor state bucket only
       {
         Effect = "Allow"

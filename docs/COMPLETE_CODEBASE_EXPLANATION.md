@@ -627,6 +627,12 @@ backend "s3" {
 - **Protocol**: HTTP (not REST)
 - **CORS**: Enabled for all origins
 - **Auto-deploy**: Changes deploy automatically
+- **Rate Limiting**: Configured at the stage level via `default_route_settings`
+  - **Burst limit**: 10 concurrent requests (max simultaneous)
+  - **Sustained rate**: 5 requests per second (sustained throughput)
+  - **Why**: Protects Lambda invocation costs and GitHub token (5,000 req/hr hard limit)
+  - **Configurable**: Via `throttle_burst_limit` and `throttle_rate_limit` variables in `terraform/modules/api_gateway/main.tf`
+  - **Behavior**: Requests exceeding limits receive `429 Too Many Requests` from API Gateway before Lambda is invoked (no cost, no token usage)
 - **Authentication**: Dual-layer authentication for `/analyze` endpoint
   - **Layer 1 (Lambda-level)**: API key validation via `x-api-key` header (implemented in `_validate_api_key()`)
   - **Layer 2 (Gateway-level)**: HTTP API v2 doesn't support API keys at Gateway level like REST API does
@@ -1066,6 +1072,17 @@ Deployment complete ✅
 **Sanitized Logging**:
 - Lambda handler logs only: path, httpMethod, requestId
 - Never logs: Full event, headers, body (may contain secrets)
+
+### Rate Limiting and Abuse Protection
+
+**API Gateway Rate Limiting**:
+- Requests exceeding the configured limits (10 burst, 5 req/s sustained) receive `429 Too Many Requests` from API Gateway
+- Rate limiting occurs at the Gateway level before Lambda is invoked, preventing:
+  - Unnecessary Lambda invocation costs
+  - GitHub token exhaustion (5,000 req/hr hard limit)
+  - Abuse and denial-of-service attacks
+- Conservative defaults (10 burst, 5/s sustained) are appropriate for a personal/dev tool
+- Limits can be increased for production if legitimate traffic requires it
 
 ---
 

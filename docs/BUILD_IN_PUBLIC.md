@@ -1,5 +1,5 @@
 # Deploymentor: Build in Public Post Series
-# Total posts: 46
+# Total posts: 47
 # Platform: X / LinkedIn
 # Project: https://github.com/BamiseOmolaso/deploymentor
 
@@ -713,6 +713,20 @@ Refactored to terraform/bootstrap/. IAM is now managed separately by a local adm
 
 End state: bootstrap applied cleanly, dev deploy green, all features live. No more manual IAM patches. The pattern works.
 
+Next post: rate limiting at the Gateway level.
+
+---
+
+## POST 47 — Rate Limiting: When Your GitHub Token Has a Hard Limit
+
+GitHub's API has a hard limit: 5,000 requests per hour. One bad actor could exhaust it and break the service. Rate limiting wasn't optional — it was necessary.
+
+Added API Gateway stage-level throttling: 10 burst (max concurrent), 5 requests per second sustained. Why at Gateway level not Lambda? Requests rejected before Lambda invokes. No cost, no token usage, no wasted resources.
+
+The safety process: plan-only first, confirmed in-place update (no destroy/recreate), smoke tests passed. PR #13 merged, all CI checks green.
+
+The defaults are conservative (10/5) for a personal/dev tool. Production can increase if legitimate traffic requires it. But the pattern is set: Gateway-level rate limiting protects both cost and availability.
+
 Next post: what v2 will add.
 
 ---
@@ -738,9 +752,9 @@ Next post: what v2 will add.
 **Repository:** [github.com/BamiseOmolaso/deploymentor](https://github.com/BamiseOmolaso/deploymentor)
 
 **Stats:**
-- 70+ commits documenting the journey
+- 72+ commits documenting the journey
 - 54+ tests passing (71% coverage)
-- 45+ distinct issues encountered and resolved
+- 46+ distinct issues encountered and resolved
 - Real workflows being analyzed in production
 - CI/CD workflow gating implemented
 - Terraform backend modernized (use_lockfile)
@@ -757,3 +771,4 @@ Next post: what v2 will add.
 - Bootstrap IAM pattern implemented (IAM managed separately from deploy workflows)
 - Cost budget alerts configured at $5/month
 - Lambda versioning and automated prod rollback implemented
+- API Gateway rate limiting configured (10 burst, 5 req/s sustained)

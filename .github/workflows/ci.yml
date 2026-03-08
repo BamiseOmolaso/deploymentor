@@ -98,15 +98,10 @@ jobs:
           python -m pip install --upgrade pip
           pip install -r requirements.txt
 
-      - name: Security vulnerability scan (Trivy)
-        uses: aquasecurity/trivy-action@master
-        with:
-          scan-type: 'fs'
-          scan-ref: '.'
-          format: 'table'
-          exit-code: '0'
-          ignore-unfixed: true
-          severity: 'CRITICAL,HIGH'
+      - name: Run Safety check
+        run: |
+          pip install safety --upgrade --quiet
+          safety scan || true
 
       - name: Check for hardcoded secrets
         run: |

@@ -186,6 +186,16 @@ This means another process is running Terraform against this state.
 - **HTTP API vs REST API**: HTTP API is cheaper ($1 per million requests vs $3.50)
 - **Automatic scaling**: Handles millions of requests
 - **Built-in features**: CORS, access logging, request/response transformation
+
+**Request Flow Diagram**:
+```mermaid
+flowchart LR
+    Client -->|HTTPS + API Key| APIGateway
+    APIGateway --> Lambda
+    Lambda -->|Get token| SSM
+    Lambda -->|Fetch logs| GitHubAPI
+    Lambda --> Response
+```
 - **No infrastructure**: Fully managed by AWS
 
 **How we set it up**:
@@ -708,6 +718,18 @@ The CI/CD pipeline consists of multiple workflows that implement a dev → stagi
 **Test Coverage**: CI enforces a minimum coverage threshold of 50% (`--cov-fail-under=50`). Current coverage is 71%, providing a safety margin. This prevents regressions that reduce test coverage below acceptable levels.
 
 **Workflow Timeouts**: All deploy workflows have a 30-minute timeout (`timeout-minutes: 30`) to prevent hanging runs from consuming resources indefinitely. If a deploy takes longer than 30 minutes, it's automatically cancelled.
+
+**Deployment Pipeline Diagram**:
+```mermaid
+flowchart LR
+    Push --> CI
+    CI -->|pass| DeployDev
+    DeployDev -->|smoke tests pass| ManualTrigger
+    ManualTrigger --> DeployStaging
+    DeployStaging -->|smoke tests pass| ManualApproval
+    ManualApproval --> DeployProd
+    DeployProd -->|smoke tests fail| AutoRollback
+```
 
 ### Environment Lifecycle
 

@@ -19,12 +19,21 @@ resource "aws_lambda_function" "this" {
   reserved_concurrent_executions = var.reserved_concurrent_executions
   source_code_hash               = fileexists(local.lambda_zip_path) ? filebase64sha256(local.lambda_zip_path) : null
   layers                         = var.layers # Lambda Layers for dependencies
+  publish                        = true       # Enable versioning for rollback support
 
   environment {
     variables = var.environment_variables
   }
 
   tags = var.tags
+}
+
+# Lambda alias pointing to latest version (for rollback support)
+resource "aws_lambda_alias" "live" {
+  name             = "live"
+  description      = "Live alias pointing to latest version"
+  function_name    = aws_lambda_function.this.function_name
+  function_version = aws_lambda_function.this.version
 }
 
 # CloudWatch Log Group

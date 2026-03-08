@@ -105,11 +105,11 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform/environments/prod
-        run: terraform plan -var="environment=prod" -out=tfplan
+        run: terraform plan -var="environment=prod" -var="budget_alert_email=${{ secrets.BUDGET_ALERT_EMAIL }}" -out=tfplan
 
       - name: Terraform Apply
         working-directory: terraform/environments/prod
-        run: terraform apply -var="environment=prod" -auto-approve tfplan
+        run: terraform apply -var="environment=prod" -var="budget_alert_email=${{ secrets.BUDGET_ALERT_EMAIL }}" -auto-approve tfplan
 
       - name: Get API URL
         id: get-url
@@ -135,8 +135,24 @@ jobs:
         run: |
           ./scripts/smoke-test.sh prod
 
-      - name: Fail on smoke test failure
+      - name: Rollback on smoke test failure
         if: failure()
         run: |
-          echo "⚠️ Prod smoke tests failed — consider rollback" && exit 1
+          echo "❌ Prod smoke tests failed — rolling back to previous version"
+          PREV_VERSION=$(aws lambda list-versions-by-function \
+            --function-name deploymentor-prod \
+            --query 'Versions[-2].Version' \
+            --output text)
+          
+          if [ -n "$PREV_VERSION" ] && [ "$PREV_VERSION" != "null" ]; then
+            echo "🔄 Rolling back to version $PREV_VERSION"
+            aws lambda update-alias \
+              --function-name deploymentor-prod \
+              --name live \
+              --function-version "$PREV_VERSION"
+            echo "✅ ROLLED BACK to version $PREV_VERSION"
+          else
+            echo "⚠️ No previous version found — cannot rollback"
+          fi
+          exit 1
 

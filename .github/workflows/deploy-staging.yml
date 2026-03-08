@@ -114,11 +114,11 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform/environments/staging
-        run: terraform plan -var="environment=staging" -out=tfplan
+        run: terraform plan -var="environment=staging" -var="budget_alert_email=${{ secrets.BUDGET_ALERT_EMAIL }}" -out=tfplan
 
       - name: Terraform Apply
         working-directory: terraform/environments/staging
-        run: terraform apply -var="environment=staging" -auto-approve tfplan
+        run: terraform apply -var="environment=staging" -var="budget_alert_email=${{ secrets.BUDGET_ALERT_EMAIL }}" -auto-approve tfplan
 
       - name: Get API URL
         id: get-url

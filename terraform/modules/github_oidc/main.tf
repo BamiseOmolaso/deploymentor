@@ -188,6 +188,18 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "arn:aws:sns:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:deploymentor-*",
         ]
       },
+      # Budgets — scope to deploymentor budgets only
+      {
+        Effect = "Allow"
+        Action = [
+          "budgets:ModifyBudget",
+          "budgets:ViewBudget",
+          "budgets:DeleteBudget",
+        ]
+        Resource = [
+          "arn:aws:budgets::${data.aws_caller_identity.current.account_id}:budget/deploymentor-*",
+        ]
+      },
       # S3 state — scope to deploymentor state bucket only
       {
         Effect = "Allow"

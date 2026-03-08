@@ -659,20 +659,13 @@ Next post: deploying these fixes and verifying they work in production.
 
 ---
 
-## POST 42 — When PR Checks Don't Appear: The Missing Permissions Problem
+## POST 43 — When Reserved Concurrency Breaks Your Deploy
 
-Created a PR. Pushed code. Waited. No CI checks appeared. The workflow file existed. The trigger looked correct. But nothing happened.
+Terraform apply failed. Error: "ReservedConcurrentExecutions decreases account's UnreservedConcurrentExecution below its minimum value of 10". The Lambda function had `reserved_concurrent_executions = 10` set. AWS accounts have a minimum unreserved concurrency of 10. Setting reserved concurrency to 10 would drop the account below that minimum.
 
-The problem wasn't the trigger configuration. It was the permissions. GitHub Actions needs explicit permission to write status checks to PRs. Without `checks: write`, the workflow can run, but the checks won't appear on the PR.
+The fix: Set dev environment to unreserved concurrency (`-1`). Dev doesn't need guaranteed capacity. It needs to not break. Staging and prod keep their reserved limits. They need predictable performance.
 
-The fix was three parts:
-1. Add explicit `pull_request` event types: `[opened, synchronize, reopened, ready_for_review]`
-2. Add `workflow_dispatch` for manual triggering
-3. Update permissions: `pull-requests: write` and `checks: write`
-
-After merging the fix to main, created a test PR. CI triggered automatically. All checks appeared. Problem solved.
-
-The lesson: GitHub Actions permissions are subtle. `contents: read` and `pull-requests: read` aren't enough. You need write permissions for checks to appear on PRs.
+The lesson: Reserved concurrency is a trade-off. Guaranteed capacity vs. account-level limits. For dev, choose flexibility. For prod, choose guarantees. Know your account limits before reserving.
 
 Next post: what's next for v2.
 
@@ -699,9 +692,9 @@ Next post: what's next for v2.
 **Repository:** [github.com/BamiseOmolaso/deploymentor](https://github.com/BamiseOmolaso/deploymentor)
 
 **Stats:**
-- 55+ commits documenting the journey
+- 56+ commits documenting the journey
 - 54+ tests passing
-- 33 distinct issues encountered and resolved
+- 34 distinct issues encountered and resolved
 - Real workflows being analyzed in production
 - CI/CD workflow gating implemented
 - Terraform backend modernized (use_lockfile)
@@ -709,3 +702,4 @@ Next post: what's next for v2.
 - Three-environment lifecycle (dev/staging/prod) with manual approval gate
 - One-direction code flow enforced (main → staging → prod) with ancestry checks
 - CI workflow auto-triggers on PRs with proper permissions
+- Dev Lambda uses unreserved concurrency to prevent account limit errors

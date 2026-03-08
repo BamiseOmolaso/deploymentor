@@ -1,5 +1,5 @@
 # Deploymentor: Build in Public Post Series
-# Total posts: 47
+# Total posts: 48
 # Platform: X / LinkedIn
 # Project: https://github.com/BamiseOmolaso/deploymentor
 
@@ -726,6 +726,20 @@ Added API Gateway stage-level throttling: 10 burst (max concurrent), 5 requests 
 The safety process: plan-only first, confirmed in-place update (no destroy/recreate), smoke tests passed. PR #13 merged, all CI checks green.
 
 The defaults are conservative (10/5) for a personal/dev tool. Production can increase if legitimate traffic requires it. But the pattern is set: Gateway-level rate limiting protects both cost and availability.
+
+Next post: when Gateway-level auth isn't possible.
+
+---
+
+## POST 48 — When API Gateway Auth Isn't Possible: HTTP API v2 Limitations
+
+Investigated moving API key enforcement to API Gateway infra level. Discovered HTTP API v2 does not support `api_key_required` on routes. That is a REST API v1 feature only.
+
+Evaluated alternatives. JWT authorizer: overkill for a simple API key. Lambda authorizer: invokes Lambda twice per request, defeats the cost-saving purpose entirely. Migrate to REST API v1: more expensive and complex.
+
+Decision: keep auth in Lambda. It is the correct and idiomatic approach for HTTP APIs. Single Lambda invocation validates the key, rejects immediately if invalid. No double invocation, no extra cost, no complexity.
+
+Reverted to last stable state on main using git checkout. Cleaned up partial Terraform state from the failed apply. Lesson learned: always check API type (HTTP vs REST) before designing auth strategy. They have fundamentally different capability sets.
 
 Next post: what v2 will add.
 

@@ -633,13 +633,18 @@ backend "s3" {
   - **Why**: Protects Lambda invocation costs and GitHub token (5,000 req/hr hard limit)
   - **Configurable**: Via `throttle_burst_limit` and `throttle_rate_limit` variables in `terraform/modules/api_gateway/main.tf`
   - **Behavior**: Requests exceeding limits receive `429 Too Many Requests` from API Gateway before Lambda is invoked (no cost, no token usage)
-- **Authentication**: Dual-layer authentication for `/analyze` endpoint
-  - **Layer 1 (Lambda-level)**: API key validation via `x-api-key` header (implemented in `_validate_api_key()`)
-  - **Layer 2 (Gateway-level)**: HTTP API v2 doesn't support API keys at Gateway level like REST API does
-  - API keys stored in SSM Parameter Store at `/deploymentor/{environment}/api_key`
-  - Lambda-level validation provides defence in depth and is performant (no additional latency)
-  - `/health` endpoint remains public (no authentication required)
-  - **Note**: If Gateway-level auth is required in the future, consider migrating to REST API or using a Lambda authorizer
+- **Authentication**: Enforced at Lambda level (by design)
+  - **Why Lambda-level**: HTTP API v2 does not support native API key enforcement at the route level — this is a REST API v1 feature only
+  - **Implementation**: `x-api-key` header is validated inside the Lambda handler via `_validate_api_key()` function
+  - **API Key Storage**: Stored in SSM Parameter Store at `/deploymentor/{environment}/api_key`
+  - **Endpoints**:
+    - `/health`: Public (no authentication required)
+    - `/analyze`: Requires valid `x-api-key` header (returns 401 if missing or invalid)
+  - **Why not Gateway-level**: Investigated Gateway-level auth options:
+    - **JWT authorizer**: Overkill for a simple API key, requires identity provider setup
+    - **Lambda authorizer**: Invokes Lambda twice per request (authorizer + handler), defeats the cost-saving purpose entirely
+    - **Migrate to REST API v1**: More expensive ($3.50 vs $1 per million requests) and adds complexity
+  - **Decision**: Lambda-level auth is the idiomatic and cost-effective approach for HTTP API v2
 
 ### GitHub OIDC Module (`terraform/modules/github_oidc/`)
 
@@ -1083,6 +1088,23 @@ Deployment complete ✅
   - Abuse and denial-of-service attacks
 - Conservative defaults (10 burst, 5/s sustained) are appropriate for a personal/dev tool
 - Limits can be increased for production if legitimate traffic requires it
+
+### Authentication Strategy
+
+**Deliberate Design Decision**: API Gateway-level authentication was investigated and rejected for HTTP API v2.
+
+**Why Gateway-level auth was not implemented**:
+- HTTP API v2 does not support `api_key_required` on routes (this is a REST API v1 feature only)
+- Alternative options evaluated:
+  - **JWT authorizer**: Overkill for a simple API key, requires identity provider setup
+  - **Lambda authorizer**: Invokes Lambda twice per request (authorizer + handler), defeats the cost-saving purpose entirely
+  - **Migrate to REST API v1**: More expensive ($3.50 vs $1 per million requests) and adds unnecessary complexity
+
+**Current Approach**: Single Lambda invocation validates the API key and rejects immediately if invalid (401 Unauthorized). This is:
+- **Idiomatic**: The correct approach for HTTP API v2
+- **Cost-effective**: Only one Lambda invocation per request
+- **Performant**: No additional latency from authorizer
+- **Simple**: No complex identity provider or JWT setup required
 
 ---
 

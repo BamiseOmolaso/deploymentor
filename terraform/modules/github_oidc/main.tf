@@ -182,6 +182,7 @@ resource "aws_iam_role_policy" "github_actions_deploy" {
           "sns:SetTopicAttributes",
           "sns:TagResource",
           "sns:ListTagsForResource",
+          "sns:DeleteTopic",
         ]
         Resource = [
           "arn:aws:sns:${data.aws_region.current.name}:${data.aws_caller_identity.current.account_id}:deploymentor-*",

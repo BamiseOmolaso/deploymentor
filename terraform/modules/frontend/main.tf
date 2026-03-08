@@ -55,7 +55,7 @@ resource "aws_s3_bucket_policy" "frontend" {
 # CloudFront distribution
 resource "aws_cloudfront_distribution" "frontend" {
   enabled             = true
-  default_root_object  = "index.html"
+  default_root_object = "index.html"
   price_class         = "PriceClass_100"
   comment             = "DeployMentor frontend - ${var.environment}"
 

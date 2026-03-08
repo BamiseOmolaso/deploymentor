@@ -580,8 +580,13 @@ backend "s3" {
 **Key Configuration**:
 - **Handler**: `src.lambda_handler.handler`
 - **Runtime**: `python3.12`
+- **Timeout**: 60 seconds (with timeout guard in handler)
+- **Memory**: 256 MB (default)
+- **Reserved Concurrency**: 
+  - **Dev**: `-1` (unreserved) - Prevents account-level concurrency limit errors
+  - **Staging/Prod**: `10` (default) - Reserved capacity for predictable performance
 - **Layers**: Lambda Layer with `requests` library
-- **Environment variables**: `GITHUB_TOKEN_SSM_PARAM`, `ENVIRONMENT`
+- **Environment variables**: `GITHUB_TOKEN_SSM_PARAM`, `ENVIRONMENT`, `API_KEY_SSM_PARAM`
 
 **Lambda Zip Path Resolution**:
 - **Zip location**: Created at repo root as `lambda_function.zip` by the deploy workflow
@@ -1433,7 +1438,9 @@ A comprehensive DevOps best practices audit was conducted on 2026-03-07, evaluat
 
 **Additional Fixes Completed**:
 - ✅ Increased Lambda timeout from 30 to 60 seconds with timeout guard
-- ✅ Added reserved concurrency limit (10 concurrent executions)
+- ✅ Added reserved concurrency configuration:
+  - Dev: `-1` (unreserved) to prevent account-level limit errors
+  - Staging/Prod: `10` (reserved) for predictable performance
 - ✅ Updated Lambda packaging to include runtime dependencies for v2 readiness
 
 **Full Report**: See [DevOps Audit Report](DEVOPS_AUDIT_REPORT.md) for complete findings, explanations, and one-line fixes for all 30 identified issues.

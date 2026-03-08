@@ -100,7 +100,9 @@ jobs:
           pip install safety
 
       - name: Run Safety check
-        run: safety check --json || true  # Non-blocking, but logs issues
+        run: |
+          pip install safety --upgrade --quiet
+          safety scan || true
 
       - name: Check for hardcoded secrets
         run: |

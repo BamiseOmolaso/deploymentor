@@ -49,6 +49,15 @@ resource "aws_apigatewayv2_stage" "default" {
     })
   }
 
+  # Rate limiting: 10 burst (max concurrent), 5/s sustained
+  # Protects Lambda costs and GitHub token (5000 req/hr limit)
+  # Conservative defaults for a personal/dev tool
+  # Increase for prod if legitimate traffic requires it
+  default_route_settings {
+    throttling_burst_limit = var.throttle_burst_limit
+    throttling_rate_limit  = var.throttle_rate_limit
+  }
+
   tags = var.tags
 }
 

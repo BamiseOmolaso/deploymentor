@@ -30,3 +30,15 @@ variable "api_key_ssm_param" {
   default     = ""
 }
 
+variable "throttle_burst_limit" {
+  description = "Max concurrent requests allowed (burst)"
+  type        = number
+  default     = 10
+}
+
+variable "throttle_rate_limit" {
+  description = "Sustained requests per second limit"
+  type        = number
+  default     = 5
+}
+

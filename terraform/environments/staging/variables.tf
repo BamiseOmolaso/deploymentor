@@ -60,3 +60,15 @@ variable "create_oidc_provider" {
   default     = false
 }
 
+variable "monthly_budget_amount" {
+  description = "Monthly budget amount in USD (default: $5)"
+  type        = string
+  default     = "5"
+}
+
+variable "budget_alert_email" {
+  description = "Email address for budget alerts (optional, leave empty to disable budget)"
+  type        = string
+  default     = ""
+}
+

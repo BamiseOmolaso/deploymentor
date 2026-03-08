@@ -186,6 +186,16 @@ This means another process is running Terraform against this state.
 - **HTTP API vs REST API**: HTTP API is cheaper ($1 per million requests vs $3.50)
 - **Automatic scaling**: Handles millions of requests
 - **Built-in features**: CORS, access logging, request/response transformation
+
+**Request Flow Diagram**:
+```mermaid
+flowchart LR
+    Client -->|HTTPS + API Key| APIGateway
+    APIGateway --> Lambda
+    Lambda -->|Get token| SSM
+    Lambda -->|Fetch logs| GitHubAPI
+    Lambda --> Response
+```
 - **No infrastructure**: Fully managed by AWS
 
 **How we set it up**:

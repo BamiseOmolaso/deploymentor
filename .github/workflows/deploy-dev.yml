@@ -97,11 +97,11 @@ jobs:
 
       - name: Terraform Plan
         working-directory: terraform/environments/dev
-        run: terraform plan -var="environment=dev" -out=tfplan
+        run: terraform plan -var="environment=dev" -var="budget_alert_email=${{ secrets.BUDGET_ALERT_EMAIL }}" -out=tfplan
 
       - name: Terraform Apply
         working-directory: terraform/environments/dev
-        run: terraform apply -var="environment=dev" -auto-approve tfplan
+        run: terraform apply -var="environment=dev" -var="budget_alert_email=${{ secrets.BUDGET_ALERT_EMAIL }}" -auto-approve tfplan
 
       - name: Get API URL
         id: api_url

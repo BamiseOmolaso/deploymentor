@@ -79,3 +79,17 @@ module "github_oidc" {
   }
 }
 
+# Budget module (for cost monitoring)
+module "budget" {
+  source = "../../modules/budget"
+
+  project_name          = var.project_name
+  environment           = var.environment
+  monthly_budget_amount = var.monthly_budget_amount
+  budget_alert_email    = var.budget_alert_email
+
+  tags = {
+    Name = "${var.project_name}-budget-${var.environment}"
+  }
+}
+

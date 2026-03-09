@@ -51,7 +51,7 @@ module "lambda" {
   }
 }
 
-# API Gateway HTTP API
+# API Gateway HTTP API (cors_allow_origins includes frontend CloudFront domain)
 module "api_gateway" {
   source = "../../modules/api_gateway"
 
@@ -59,6 +59,11 @@ module "api_gateway" {
   lambda_function_arn        = module.lambda.function_arn
   lambda_function_name       = module.lambda.function_name
   lambda_function_invoke_arn = module.lambda.function_invoke_arn
+  cors_allow_origins = [
+    "https://localhost:3000",
+    "https://localhost:8080",
+    "https://${module.frontend.cloudfront_domain_name}",
+  ]
 
   tags = {
     Name = "${var.project_name}-api-${var.environment}"

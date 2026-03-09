@@ -3,6 +3,11 @@ output "frontend_url" {
   value       = "https://${aws_cloudfront_distribution.frontend.domain_name}"
 }
 
+output "cloudfront_domain_name" {
+  description = "CloudFront distribution domain name (hostname only)"
+  value       = aws_cloudfront_distribution.frontend.domain_name
+}
+
 output "s3_bucket_name" {
   description = "S3 bucket name for frontend files"
   value       = aws_s3_bucket.frontend.id

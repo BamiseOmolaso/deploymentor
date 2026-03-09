@@ -356,10 +356,11 @@ deploymentor/
 - **Flow**:
   1. Logs sanitized request (no sensitive data)
   2. Extracts HTTP method and path from event
-  3. **Normalizes path**: Handles double slashes from API Gateway trailing slash
+  3. **OPTIONS (CORS preflight)** handled before auth: If method is `OPTIONS`, returns 200 immediately with CORS headers (`Access-Control-Allow-Origin` from request Origin, `Access-Control-Allow-Methods: GET, POST, OPTIONS`, `Access-Control-Allow-Headers: content-type, x-api-key`, `Access-Control-Max-Age: 300`). Required because HTTP API v2 routes OPTIONS to Lambda; auth is still enforced on every non-OPTIONS request.
+  4. **Normalizes path**: Handles double slashes from API Gateway trailing slash
      - Example: `//health` → `/health`, `//analyze` → `/analyze`
      - This ensures routes work whether API Gateway URL has trailing slash or not
-  4. Routes to appropriate handler:
+  5. Routes to appropriate handler:
      - `GET /health` → `_health_check()`
      - `POST /analyze` → `_analyze()`
      - Everything else → 404
@@ -1067,6 +1068,11 @@ Deployment complete ✅
 - **Note**: `s3:DeleteObject` is required for `use_lockfile` to release state locks
 - **Security**: IAM is managed outside the deploy pipeline intentionally to prevent the bootstrapping problem
 
+### CORS and preflight
+
+- **CORS allowed origins**: `https://localhost:3000`, `https://localhost:8080`, and the CloudFront frontend domain (per environment). Configured in Terraform via `cors_allow_origins`; CloudFront domain is referenced dynamically from the frontend module output.
+- **OPTIONS preflight**: Allowed through without auth by design — OPTIONS carries no data and triggers no business logic. The Lambda handler returns 200 with CORS headers for `OPTIONS` before any auth check. All `POST` and `GET` requests still require a valid `x-api-key` header.
+
 ### Network Security
 
 - **API Gateway**: Public (by design - it's an API)
@@ -1636,6 +1642,10 @@ So the repo never contains environment-specific URLs; they are injected only whe
 
 ### How to access the frontend
 
+The dev frontend is live at **https://d25uyavj67bgbp.cloudfront.net/** (per-environment URL from Terraform output `frontend_url`). In `index.html`, **config.js must be the first script tag in `<head>`** so `CONFIG` is defined before any inline script references it.
+
+**End-to-end flow**: User enters API key (from SSM), repo (e.g. `owner/repo`), and run ID → clicks Analyze → frontend sends `POST /analyze` with `x-api-key` header → Lambda validates key, calls GitHub API, fetches workflow and logs → returns analysis (failed job, step, error type, error message with ANSI stripped, suggestions) → results displayed in the browser.
+
 After deploying an environment, the frontend URL is a Terraform output:
 
 ```bash
@@ -1643,7 +1653,7 @@ cd terraform/environments/dev   # or staging, prod
 terraform output frontend_url
 ```
 
-Example: `https://d25uyavj67bgbp.cloudfront.net`. Open that URL in a browser, enter your API key (from SSM), repo (e.g. `owner/repo`), and a run ID, then click Analyze.
+Open that URL in a browser, enter your API key (from SSM), repo (e.g. `owner/repo`), and a run ID, then click Analyze.
 
 ### CloudFront invalidation
 

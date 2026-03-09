@@ -87,6 +87,10 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
 
     logger.info(f"Extracted method: {http_method}, path: {path}")
 
+    # Allow CORS preflight through without auth check (OPTIONS has no body/headers)
+    if http_method == "OPTIONS":
+        return _cors_preflight_response(event)
+
     # Route handling
     if path == "/health" and http_method == "GET":
         return _health_check()
@@ -107,6 +111,26 @@ def handler(event: Dict[str, Any], context: Any) -> Dict[str, Any]:
         "body": json.dumps(
             {"error": "Not Found", "message": f"No handler for {http_method} {path}"}
         ),
+    }
+
+
+def _cors_preflight_response(event: Dict[str, Any]) -> Dict[str, Any]:
+    """
+    Return 200 with CORS headers for OPTIONS preflight.
+    Echo request Origin when present so browser allows the actual request.
+    """
+    headers = event.get("headers") or {}
+    origin = headers.get("origin") or headers.get("Origin") or "*"
+    return {
+        "statusCode": 200,
+        "headers": {
+            "Content-Type": "application/json",
+            "Access-Control-Allow-Origin": origin,
+            "Access-Control-Allow-Methods": "POST, GET, OPTIONS",
+            "Access-Control-Allow-Headers": "content-type, x-api-key",
+            "Access-Control-Max-Age": "300",
+        },
+        "body": "",
     }
 
 

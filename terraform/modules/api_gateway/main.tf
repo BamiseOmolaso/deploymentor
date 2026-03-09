@@ -5,9 +5,11 @@ resource "aws_apigatewayv2_api" "this" {
   description   = "DeployMentor API Gateway"
 
   cors_configuration {
-    allow_origins = var.cors_allow_origins
-    allow_methods = ["GET", "POST", "OPTIONS"]
-    allow_headers = ["content-type", "authorization"]
+    allow_origins  = var.cors_allow_origins
+    allow_methods  = ["GET", "POST", "OPTIONS"]
+    allow_headers  = ["content-type", "x-api-key", "authorization"]
+    expose_headers = ["x-amzn-requestid", "x-amzn-errortype"]
+    max_age        = 300
   }
 
   tags = var.tags

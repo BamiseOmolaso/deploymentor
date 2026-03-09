@@ -614,6 +614,7 @@ backend "s3" {
   - Goes up 3 levels (`../../../`) to reach repo root
   - Works for all environments (dev, staging, prod) automatically
 - **Why this matters**: When Terraform runs from `terraform/environments/dev/`, relative paths must account for the directory structure. The original path `${path.root}/../lambda_function.zip` only went up one level, which was correct when running from `terraform/` but broke when moved to environment subdirectories.
+- **Build artifact / .gitignore**: `lambda_function.zip` is a build artifact and is listed in `.gitignore`. It is built fresh by CI/CD on every deploy from source (`src/`). Committing it would bloat the repo, cause false diffs on every deploy, and risk shipping a stale build if someone forgets to rebuild before committing. Source of truth is always `src/` — never the zip.
 
 ### API Gateway Module (`terraform/modules/api_gateway/`)
 

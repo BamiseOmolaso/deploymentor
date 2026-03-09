@@ -763,6 +763,16 @@ Next post: what v2 will add.
 
 ---
 
+## POST 50 — Frontend End-to-End: The Debugging Saga
+
+Getting the frontend working at https://d25uyavj67bgbp.cloudfront.net/ took three separate fixes. One: config.js had the correct content in S3 (real API URL injected by CI), but index.html in S3 had no script tag for config.js — the browser never loaded it, so CONFIG was undefined and the app showed "API URL is not configured" or hit the wrong URL. Fixed by adding the script tag. Two: we added the tag in the wrong position (after Tailwind). The inline script ran before config.js loaded, so CONFIG was still undefined. Fixed by moving config.js to the first script in `<head>`. Three: CORS was correctly set in Terraform (CloudFront in allow_origins), but the OPTIONS preflight was returning 404 — HTTP API v2 routes OPTIONS to Lambda, and the Lambda had no OPTIONS handler, so it fell through to the default 404. Browsers need a 2xx preflight response to send the real POST. Fixed by adding an early return in the Lambda handler: if method is OPTIONS, return 200 with CORS headers (Access-Control-Allow-Origin from the request Origin, Allow-Methods, Allow-Headers, Max-Age) and skip auth. Auth still runs on every non-OPTIONS request.
+
+Why OPTIONS must bypass auth: the browser’s preflight never carries credentials or a body. It only asks what methods and headers are allowed. Letting OPTIONS through is safe; the actual POST is still protected by x-api-key.
+
+Lessons: test with DevTools open from the start — it shows CORS, script loading, and network errors clearly. HTTP API v2 does not handle OPTIONS automatically like REST API v1; Lambda must respond. Config files must load before any script that uses them. Frontend is now live and tested with real failed run IDs — works correctly.
+
+---
+
 ## Technical Details
 
 **Tech Stack:**

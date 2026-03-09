@@ -24,6 +24,12 @@ variable "tags" {
   default     = {}
 }
 
+variable "cors_allow_origins" {
+  description = "CORS allowed origins (e.g. CloudFront URL, localhost)"
+  type        = list(string)
+  default     = ["*"]
+}
+
 variable "api_key_ssm_param" {
   description = "SSM Parameter Store path for API key (optional, for authentication)"
   type        = string

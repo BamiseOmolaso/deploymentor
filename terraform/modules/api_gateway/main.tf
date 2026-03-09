@@ -5,7 +5,7 @@ resource "aws_apigatewayv2_api" "this" {
   description   = "DeployMentor API Gateway"
 
   cors_configuration {
-    allow_origins = ["*"] # TODO: Restrict in production
+    allow_origins = var.cors_allow_origins
     allow_methods = ["GET", "POST", "OPTIONS"]
     allow_headers = ["content-type", "authorization"]
   }

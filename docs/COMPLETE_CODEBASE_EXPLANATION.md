@@ -206,7 +206,7 @@ flowchart LR
   - `GET /health` → Health check
   - `POST /analyze` → Main analysis endpoint
   - `$default` → Catch-all route to Lambda
-- **CORS**: Enabled for all origins (can restrict in production)
+- **CORS**: Allowed origins include the CloudFront frontend domain (and localhost for local dev). The origin is referenced dynamically via the frontend module output `cloudfront_domain_name`, so the API Gateway and frontend modules stay in sync in Terraform.
 
 **Code location**: `terraform/modules/api_gateway/main.tf`
 
@@ -626,7 +626,7 @@ backend "s3" {
 
 **Key Configuration**:
 - **Protocol**: HTTP (not REST)
-- **CORS**: Enabled for all origins
+- **CORS**: Allowed origins include the CloudFront frontend domain (from `module.frontend.cloudfront_domain_name`) plus localhost; configured via `cors_allow_origins` in the API Gateway module so frontend and API stay in sync.
 - **Auto-deploy**: Changes deploy automatically
 - **Rate Limiting**: Configured at the stage level via `default_route_settings`
   - **Burst limit**: 10 concurrent requests (max simultaneous)

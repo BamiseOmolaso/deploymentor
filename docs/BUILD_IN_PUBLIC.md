@@ -757,6 +757,8 @@ Config is injected at deploy time. Repo has placeholders in frontend/config.js (
 
 Live URL: after deploy, run `terraform output frontend_url` in the environment directory. Open that CloudFront URL, enter API key (from SSM), repo, run ID, click Analyze. Same flow as the API, but in a browser. CloudFront invalidation runs on every deploy so you always get the latest files.
 
+On first test the frontend hit a CORS error — API Gateway was rejecting requests from the CloudFront origin. Fixed by adding the CloudFront domain to `cors_allow_origins` in the API Gateway module. The origin is set via Terraform module output (`module.frontend.cloudfront_domain_name`) so it stays in sync if the distribution ever changes. Frontend is now fully working end to end.
+
 Next post: what v2 will add.
 
 ---

@@ -1,0 +1,6 @@
+# Reviewed false positives (2026-10-02). Each fingerprint is commit:file:rule:line,
+# so it only silences that exact historical finding, never a new one.
+61fd244f9ef1aaf868830d48c01ce643087f4124:docs/API_USAGE.md:curl-auth-header:259
+61fd244f9ef1aaf868830d48c01ce643087f4124:docs/API_USAGE.md:curl-auth-header:263
+61fd244f9ef1aaf868830d48c01ce643087f4124:docs/TESTING.md:curl-auth-header:38
+61fd244f9ef1aaf868830d48c01ce643087f4124:docs/TESTING.md:curl-auth-header:42
